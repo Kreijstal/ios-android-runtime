@@ -30,6 +30,11 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 
 **Download:** [IB2 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib2)
 
+**1.9.2** (2026-10-10)
+
+- Settings, Display now has **Resolution** for IB2 too: 720p, 1080p (the game's own) or 1440p. Lower is smoother on weaker phones; 1440p is sharper.
+- Fixed the game running at about 1 FPS on some Samsung phones with Exynos chips (seen on a Galaxy S21, Exynos 2100). The phone's firmware reports the wrong speed for the CPU clock the game times its frames with, so the game thought frames were far shorter than they were and waited about a second on every one. The port now measures the clock's real speed at startup.
+
 **1.9** (2026-10-08)
 
 - **ClashMobs are back, online.** The game's ClashMob tab shows the community's live events again, from the IB community's ClashMob server (ibclashmobs.dev, run by omgxhat), and you can join and play them: your fights count toward each event's goal and prizes. Event names and text come from the server, and the tab no longer stops at a Facebook login. Works with the stock 1.3.5 `.ipa` and with the Community Patch v2.5.
@@ -121,6 +126,10 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 <summary><b>Click for IB3</b></summary>
 
 **Download:** [IB3 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib3)
+
+**1.9.2** (2026-10-10)
+
+- Fixed the game running at about 1 FPS on some Samsung phones with Exynos chips (seen on a Galaxy S21, Exynos 2100). The phone's firmware reports the wrong speed for the CPU clock the game times its frames with, so the game thought frames were far shorter than they were and waited about a second on every one. The port now measures the clock's real speed at startup.
 
 **1.9.1** (2026-10-09)
 

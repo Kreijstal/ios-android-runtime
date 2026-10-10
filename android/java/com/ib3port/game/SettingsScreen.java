@@ -87,10 +87,8 @@ final class SettingsScreen {
         }
         addRow(display, choice("Frame rate limit", "120 is experimental: it needs a 120 Hz screen and uses more battery.",
                 "Display", "MaxFPS", 60, new int[] {30, 60, 120}, new String[] {"30", "60", "120"}));
-        if (!ib2) {
-            addRow(display, choice("Resolution", "Lower is smoother on weaker phones.",
-                    "Display", "RenderResolution", 1080, new int[] {720, 1080, 1440}, new String[] {"720p", "1080p", "1440p"}));
-        }
+        addRow(display, choice("Resolution", "Lower is smoother on weaker phones.",
+                "Display", "RenderResolution", 1080, new int[] {720, 1080, 1440}, new String[] {"720p", "1080p", "1440p"}));
         addRow(display, toggle("Show FPS", "A frames-per-second counter in the corner.", "Display", "ShowFPS", 0));
         content.addView(display);
 

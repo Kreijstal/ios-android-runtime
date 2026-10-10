@@ -67,6 +67,22 @@ void apply(cpu::Thread& t, GuestAddr config) {
              s.bloom, s.depth_of_field, s.anisotropy, read_wide(g_system_ini).c_str());
 }
 
+GuestAddr g_init_original = 0;     // FSystemSettings::Initialize
+GuestAddr g_system_settings = 0;  // GSystemSettings
+constexpr u32 kMobileContentScaleFactor = 0x464;  // IB2 (read where the game sets the view's contentScaleFactor)
+
+void on_system_settings_init(cpu::Thread& t) {
+    t.call(g_init_original, {t.x(0), t.x(1)});
+    float& scale = gptr<float>(g_system_settings + kMobileContentScaleFactor)[0];
+    float want = (float)(settings::get().render_height / 414.0);
+    if (scale < 1.5f || scale > 4.f) {  // not the field this was measured on: leave it
+        LOG_WARN("settings: unexpected content scale %.3f; the game keeps its own resolution", scale);
+        return;
+    }
+    LOG_INFO("settings: %dp picture (content scale %.3f instead of %.3f)", settings::get().render_height, want, scale);
+    scale = want;
+}
+
 void on_load_coalesced(cpu::Thread& t) {
     GuestAddr config = t.x(0), language = t.x(1);
     t.call(g_load_original, {config, language});
@@ -120,6 +136,15 @@ void apply_as_startup_commands() {
 }  // namespace
 
 void install_config(const macho::Image& img) {
+    // IB2: the Resolution setting. Its game thread reads GSystemSettings.MobileContentScaleFactor once, after
+    // FSystemSettings::Initialize and before the engine starts, to size the view (pixels per point, 414 points
+    // tall); 1080 is the game's own value.
+    g_system_settings = img.find("_GSystemSettings");
+    GuestAddr init = img.find("__ZN15FSystemSettings10InitializeEj");
+    if (is_ib2() && settings::get().render_height != 1080) {
+        if (init && g_system_settings) g_init_original = hook::install(init, "FSystemSettings::Initialize", on_system_settings_init);
+        else LOG_WARN("settings: FSystemSettings not found; the game keeps its own resolution");
+    }
     GuestAddr load = img.find("__ZN15FConfigCacheIni17LoadCoalescedFileEPKw");
     g_set_string = img.find("__ZN15FConfigCacheIni9SetStringEPKwS1_S1_S1_");
     g_engine_ini = img.find("_GEngineIni");
