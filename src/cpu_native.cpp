@@ -149,16 +149,21 @@ void init(const macho::Image* image) {
     g_handlers.resize(kMaxStubs);
     g_call_counts.reset(new std::atomic<u64>[kMaxStubs]());
     g_stub_names.resize(kMaxStubs);
-    // The image was loaded as data; make its code executable (and writable, for engine hooks).
-    if (image)
+    // The image was loaded as data; make its code executable (and writable, for engine hooks). The whole
+    // __TEXT segment from the Mach-O header on, as iOS maps it: IB3 Community Patch 3.0 puts its added code
+    // in the unused space after the load commands, before __text.
+    if (image) {
+        GuestAddr text_end = 0;
         for (auto& s : image->sections)
-            if (s.segname == "__TEXT") {
-                const u64 mask = host_page_size() - 1;  // 4 or 16 KB
-                u64 lo = s.addr & ~mask, hi = (s.addr + s.size + mask) & ~mask;
-                if (mprotect(gptr<void>(lo), hi - lo, PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
-                    fatal("cannot make the game's code executable");
-                __builtin___clear_cache(gptr<char>(lo), gptr<char>(hi));
-            }
+            if (s.segname == "__TEXT") text_end = std::max<GuestAddr>(text_end, s.addr + s.size);
+        if (text_end) {
+            const u64 mask = host_page_size() - 1;  // 4 or 16 KB
+            u64 lo = image->base & ~mask, hi = (text_end + mask) & ~mask;
+            if (mprotect(gptr<void>(lo), hi - lo, PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
+                fatal("cannot make the game's code executable");
+            __builtin___clear_cache(gptr<char>(lo), gptr<char>(hi));
+        }
+    }
     struct sigaction sa{};
     sa.sa_sigaction = crash_handler;
     sa.sa_flags = SA_SIGINFO | SA_ONSTACK;

@@ -529,14 +529,21 @@ void dump_save(cpu::Thread& t) {
 }
 
 // IB3 raises its engine's frame-rate limit to 62 itself after reading its config (config.cpp's values), so
-// a 30 or 120 limit is put on the engine object too. At 60 it runs as it always has (60-62).
+// a 30 or 120 limit is put on the engine object too. At 60 it runs as it always has (60-62), unless the .ipa
+// raises the limit further: Community Patch 3.0's Commands.txt sets 240, which comes back down to 62.
 void enforce_frame_cap(cpu::Thread& t) {
-    if (is_ib2() || settings::get().max_fps == 60) return;  // IB2: startup commands (config.cpp)
+    if (is_ib2()) return;  // IB2: startup commands (config.cpp)
     GuestAddr engine = ue::engine();
     if (!engine) return;
     float want = (float)settings::get().max_fps, lo = 0, hi = 0;
     if (!ue::read_property(t, engine, "MaxSmoothedFrameRate", hi) || !ue::read_property(t, engine, "MinSmoothedFrameRate", lo))
         return;
+    if (want == 60) {
+        if (hi <= 62) return;
+        LOG_INFO("saveedit: engine frame rate limit %g, set to 62 (settings: 60)", hi);
+        *gptr<float>(engine + ue::property_offset(t, engine, "MaxSmoothedFrameRate")) = 62;
+        return;
+    }
     if (hi == want && lo == want) return;
     LOG_INFO("saveedit: engine frame rate %g-%g, set to %g (settings)", lo, hi, want);
     *gptr<float>(engine + ue::property_offset(t, engine, "MaxSmoothedFrameRate")) = want;

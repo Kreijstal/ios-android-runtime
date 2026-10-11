@@ -127,6 +127,11 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 
 **Download:** [IB3 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib3)
 
+**1.9.3** (2026-10-10)
+
+- **Community Patch v3.0 works.** It closed right at the start: the patch adds its own code in a part of the game file the port did not allow to run (iOS does). Saves, ClashMobs and fights work with it.
+- The Frame rate limit setting now also holds with Community Patch v3.0, which raises the game's limit to 240: at 60 the game runs at 60 again.
+
 **1.9.2** (2026-10-10)
 
 - Fixed the game running at about 1 FPS on some Samsung phones with Exynos chips (seen on a Galaxy S21, Exynos 2100). The phone's firmware reports the wrong speed for the CPU clock the game times its frames with, so the game thought frames were far shorter than they were and waited about a second on every one. The port now measures the clock's real speed at startup.
