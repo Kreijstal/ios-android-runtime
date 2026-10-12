@@ -89,6 +89,10 @@ final class SettingsScreen {
                 "Display", "MaxFPS", 60, new int[] {30, 60, 120}, new String[] {"30", "60", "120"}));
         addRow(display, choice("Resolution", "Lower is smoother on weaker phones.",
                 "Display", "RenderResolution", 1080, new int[] {720, 1080, 1440}, new String[] {"720p", "1080p", "1440p"}));
+        if (!ib2) {
+            addRow(display, choice("Subtitle size", "Bigger subtitles in cutscenes and fights.",
+                    "Display", "SubtitleSize", 100, new int[] {100, 125, 150, 200}, new String[] {"100%", "125%", "150%", "200%"}));
+        }
         addRow(display, toggle("Show FPS", "A frames-per-second counter in the corner.", "Display", "ShowFPS", 0));
         content.addView(display);
 
@@ -118,6 +122,13 @@ final class SettingsScreen {
         addRow(sound, slider("Music", "Audio", "MusicVolume", 100, 0, 100));
         addRow(sound, slider("Effects", "Audio", "EffectsVolume", 100, 0, 100));
         content.addView(sound);
+
+        if (!ib2) {
+            content.addView(Ui.sectionHeader(a, "Touch"));
+            LinearLayout touch = Ui.card(a);
+            addRow(touch, slider("Look sensitivity", "Touch", "LookSensitivity", 100, 10, 300));
+            content.addView(touch);
+        }
 
         content.addView(Ui.sectionHeader(a, "Controller"));
         LinearLayout pad = Ui.card(a);

@@ -854,6 +854,7 @@ void install_save_editor(const macho::Image& img) {
         credits_tick(t);
         devmode_tick(t);
         wheel_tick(t);
+        touchzones_tick(t);
         options_item_caches_tick(t);
         restock_tick(t);
         t.jump(g_tick);

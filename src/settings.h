@@ -17,6 +17,8 @@ struct Settings {
     int max_fps = 30;          // 30 (original) or 60
 #endif
     bool show_fps = false;
+    int subtitle_size = 100;   // percent, IB3: the engine's subtitles (game/subtitles.cpp)
+    int look_sensitivity = 100;  // percent, IB3: dragging to look around (game/look.cpp)
     // Graphics (IB3's own mobile renderer options)
     int anti_aliasing = 1;     // 0 off, 1 FXAA, 2 MSAA 4x
     bool dynamic_shadows = true;

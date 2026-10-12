@@ -14,6 +14,9 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 namespace game {
 
@@ -44,9 +47,38 @@ void report_window(cpu::Thread& t) {
     LOG_INFO("script: busiest in the last 5 s:%s", line.c_str());
 }
 
+// debug.ibport.swipelog 1: every call of the fight input functions (swipes, dodges, the input gate).
+bool swipe_logged(cpu::Thread& t, GuestAddr fn) {
+    static std::unordered_map<GuestAddr, bool> cache;
+    auto it = cache.find(fn);
+    if (it != cache.end()) return it->second;
+    std::string n = function_name(t, fn);
+    bool yes = false;
+    for (const char* p : {"SwordPC.Slash", "SwordPC.ButtonDodge", "SwordPC.ReleaseButtonDodge", "SwordPC.InputGate", "SwordPC.BlockInput",
+                          "SwordPC.AcceptValidInput", "SwordPC.AllowInput", "SwordPC.ForceOpenInput", "SwordPC.SetPlayerInputFilter",
+                          "SwordPlayer.OnValidInput", "StabModeMulti.OnStabPointTouched", "SwordPlayer.ClearCombo", "SwordPC.Stab", "SwordPC.Tap",
+                          "SwordPlayer.OnComboHit", "DoAttackActionAnim.ComboStepMatch", "DoAttackActionAnim.UndoLastCombo"})
+        if (n.rfind(p, 0) == 0) yes = true;
+    return cache[fn] = yes;
+}
+
+bool swipelog_on() {
+#ifdef __ANDROID__
+    static int on = -1;
+    if (on < 0) {
+        char v[PROP_VALUE_MAX] = "";
+        on = __system_property_get("debug.ibport.swipelog", v) > 0 && v[0] == '1';
+    }
+    return on;
+#else
+    return false;
+#endif
+}
+
 void note_call(cpu::Thread& t, GuestAddr obj, GuestAddr fn, const char* how) {
     if (!fn) return;
     std::lock_guard lock(g_mutex);
+    if (swipelog_on() && swipe_logged(t, fn)) LOG_INFO("swipelog: %s %s", how, function_name(t, fn).c_str());
     g_counts[fn]++;
     if (g_seen.insert(fn).second)
         LOG_INFO("script: %s %s on %s (%s)", how, function_name(t, fn).c_str(), ue::object_name(t, obj).c_str(),

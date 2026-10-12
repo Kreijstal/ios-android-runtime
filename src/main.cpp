@@ -218,6 +218,9 @@ int main(int argc, char** argv) {
     game::install_widescreen();
     game::install_dev_ipa_fix();
     game::install_save_editor(img);
+    game::install_touchzones(img);
+    game::install_subtitles(img);
+    game::install_look_sensitivity(img);
     game::install_clashmob(img);
     {
         const auto& st = settings::get();

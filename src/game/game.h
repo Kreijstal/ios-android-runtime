@@ -47,6 +47,14 @@ int cheat_normal_gem_shop(cpu::Thread& t);
 int cheat_current_gold(cpu::Thread& t);  // the game's own normal shop again
 // IB3 prize wheel: settings fast_wheel speeds up its spin (game/wheel.cpp).
 void wheel_tick(cpu::Thread& t);
+// IB3: the centre fight button gets the side buttons' height (it reached far up the screen and ate swipes).
+void touchzones_tick(cpu::Thread& t);
+// IB3: swipe directions are decided from a long enough swipe (straight swipes came out diagonal).
+void install_touchzones(const macho::Image& img);
+// IB3: settings subtitle_size scales the engine's subtitles (game/subtitles.cpp).
+void install_subtitles(const macho::Image& img);
+// IB3: settings look_sensitivity scales looking around by touch (game/look.cpp).
+void install_look_sensitivity(const macho::Image& img);
 
 // IB2 on screens longer than 16:9: serves patched copies of its HUD layout script and
 // menu backdrops. If the patch does not apply, the emulated screen goes back to 16:9.

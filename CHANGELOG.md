@@ -79,6 +79,13 @@ Two Android apps, IB2 and IB3, are built from one codebase. Each has its own ver
 
 # IB3
 
+## 1.9.4 (2026-10-12)
+- **Subtitle size** (Settings, Display: 100% to 200%): the subtitles in cutscenes and fights can be made bigger. Long lines wrap onto two lines.
+- **Look sensitivity** (new Touch section in Settings, 10% to 300%): how far the view turns when you drag to look around. Lower it if the camera turns too fast. (Cursor speed and Camera speed under Controller only change a game controller.)
+- Fights: an upward swipe that starts low on the screen no longer presses the centre dodge button. That button was much taller than the side ones on wide screens, so the swipe dodged and broke the combo.
+- Fights: straight swipes no longer come out as diagonal slashes. The game picked the direction from the first few points of a fast swipe; it now waits until the swipe is a little longer.
+- Game controllers: a right-stick flick close to straight up, down, left or right makes a straight slash, so combos work with a pad.
+
 ## 1.9.3 (2026-10-10)
 - **Community Patch v3.0 works.** It closed right at the start: the patch adds its own code in a part of the game file the port did not allow to run (iOS does). Saves, ClashMobs and fights work with it.
 - The Frame rate limit setting now also holds with Community Patch v3.0, which raises the game's limit to 240: at 60 the game runs at 60 again.

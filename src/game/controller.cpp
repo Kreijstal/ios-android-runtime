@@ -20,6 +20,9 @@
 #include "settings.h"
 #include "uikit/uikit.h"
 #include <windows.h>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 #include <atomic>
 #include <cmath>
 #include <mutex>
@@ -39,6 +42,8 @@ constexpr int kFingerCursor = 70, kFingerCamera = 71, kFingerSwipe = 72, kFinger
 constexpr float kDeadzone = 0.22f, kTrigger = 0.15f;
 constexpr float kCameraStart = 0.40f, kSwipeStart = 0.55f, kSwipeEnd = 0.35f;
 constexpr double kSwipeSeconds = 0.07, kSwipeStickySeconds = 0.7;
+constexpr double kPi = 3.14159265358979323846;
+constexpr double kSnapDegrees = 20;  // IB3: flicks this close to straight go straight
 
 bool g_pad_ok = false;
 
@@ -137,7 +142,14 @@ void run() {
     std::set<std::string> held;
     Pad prev;
     bool active = false, a_tap_pending = false, legend_combo = false;
-    bool swiping = false, swipe_ready = true;
+    bool swiping = false, swipe_ready = true, missed_logged = false;
+    double flick_rx = 0, flick_ry = 0;
+#ifdef __ANDROID__
+    char swipe_prop[PROP_VALUE_MAX] = "";
+    const bool swipe_log = __system_property_get("debug.ibport.swipelog", swipe_prop) > 0 && swipe_prop[0] == '1';
+#else
+    const bool swipe_log = false;
+#endif
     double swipe_t = 0;
     CGPoint swipe_from{}, swipe_to{};
     u64 last = GetTickCount64(), last_cursor_use = 0, a_down_at = 0, rt_up_at = 0, legend_until = 0, camera_still_since = 0;
@@ -261,14 +273,34 @@ void run() {
                 }
             } else if (swipe_ready && rmag > kSwipeStart) {
                 double dx = p.rx / rmag, dy = -p.ry / rmag;  // a flick draws a slash through the centre
+                // IB3 takes straight up / down only within 10 degrees (80-100) and a stick flick is rarely that
+                // straight where it crosses kSwipeStart, so it came out as a diagonal slash and broke combos:
+                // within kSnapDegrees of up, down, left or right the slash goes straight.
+                if (!is_ib2()) {
+                    double a = std::atan2(p.ry, p.rx), axis = std::round(a / (kPi / 2)) * (kPi / 2);
+                    if (std::fabs(a - axis) < kSnapDegrees * kPi / 180) dx = std::cos(axis), dy = -std::sin(axis);
+                }
                 swipe_from = {centre.x - dx * swipe_length / 2, centre.y - dy * swipe_length / 2};
                 swipe_to = {centre.x + dx * swipe_length / 2, centre.y + dy * swipe_length / 2};
+                if (swipe_log)
+                    LOG_INFO("swipelog: pad flick stick (%.2f, %.2f) angle %.1f -> finger (%.0f, %.0f) to (%.0f, %.0f)", p.rx, p.ry,
+                             std::atan2(p.ry, p.rx) * 57.29578, swipe_from.x, swipe_from.y, swipe_to.x, swipe_to.y);
+                flick_rx = p.rx, flick_ry = p.ry;
                 swipe_finger.press(swipe_from);
                 swiping = true;
                 swipe_ready = false;
                 swipe_t = 0;
             }
-            if (rmag < kSwipeEnd) swipe_ready = true;
+            // (log: a flick the other way before the stick came back to the centre is not a swipe)
+            if (swipe_log && !swipe_ready && rmag > kSwipeStart && p.rx * flick_rx + p.ry * flick_ry < 0 && !missed_logged) {
+                LOG_INFO("swipelog: pad flick (%.2f, %.2f) ignored: stick never came back under %.2f since the last flick", p.rx, p.ry, kSwipeEnd);
+                missed_logged = true;
+            }
+            if (rmag < kSwipeEnd) {
+                if (swipe_log && !swipe_ready) LOG_INFO("swipelog: pad stick back to centre (%.2f)", rmag);
+                swipe_ready = true;
+                missed_logged = false;
+            }
         } else if (swiping) {
             swipe_finger.release();
             swiping = false;

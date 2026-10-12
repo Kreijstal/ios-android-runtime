@@ -66,6 +66,8 @@ void load() {
     s.max_fps = fps >= 60 ? 60 : 30;
 #endif
     s.show_fps = read_int(L"Display", L"ShowFPS", d.show_fps) != 0;
+    s.subtitle_size = clamp(read_int(L"Display", L"SubtitleSize", d.subtitle_size), 50, 300);
+    s.look_sensitivity = clamp(read_int(L"Touch", L"LookSensitivity", d.look_sensitivity), 10, 300);
     s.anti_aliasing = clamp(read_int(L"Graphics", L"AntiAliasing", d.anti_aliasing), 0, 2);
     s.dynamic_shadows = read_int(L"Graphics", L"DynamicShadows", d.dynamic_shadows) != 0;
     s.high_res_shadows = read_int(L"Graphics", L"HighResShadows", d.high_res_shadows) != 0;
@@ -110,6 +112,8 @@ void save() {
     write_int(L"Display", L"Widescreen", s.widescreen);
 #endif
     write_int(L"Display", L"ShowFPS", s.show_fps);
+    write_int(L"Display", L"SubtitleSize", s.subtitle_size);
+    write_int(L"Touch", L"LookSensitivity", s.look_sensitivity);
     write_int(L"Graphics", L"AntiAliasing", s.anti_aliasing);
     write_int(L"Graphics", L"DynamicShadows", s.dynamic_shadows);
     write_int(L"Graphics", L"HighResShadows", s.high_res_shadows);
