@@ -1,5 +1,5 @@
-// IB3: the Look sensitivity setting (touch). Dragging to look around goes through a full-screen touch zone
-// (ChoiceZone while exploring, LookZone elsewhere) whose movement the engine hands on as the MouseX / MouseY
+// Both games: the Look sensitivity setting (touch). Dragging to look around goes through a full-screen touch zone
+// (IB3: ChoiceZone while exploring, LookZone elsewhere) whose movement the engine hands on as the MouseX / MouseY
 // axes in UMobilePlayerInput::SendInputAxis; the glide after a quick drag goes the same way. Those two axes
 // are scaled there by the setting, whichever zone sent them. (Pads have their own Camera speed: game/controller.cpp.)
 #include "game/game.h"
@@ -27,7 +27,7 @@ void on_send_axis(cpu::Thread& t) {
 
 void install_look_sensitivity(const macho::Image& img) {
     int percent = settings::get().look_sensitivity;
-    if (is_ib2() || percent == 100) return;
+    if (percent == 100) return;
     GuestAddr send = img.find("__ZN18UMobilePlayerInput13SendInputAxisE5FNameff");
     if (!send) {
         LOG_WARN("settings: touch input axes not found; looking around keeps its speed");

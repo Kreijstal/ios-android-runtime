@@ -30,6 +30,10 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 
 **Download:** [IB2 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib2)
 
+**1.9.4** (2026-10-12)
+
+- **Look sensitivity** (new Touch section in Settings, 10% to 300%): how far the view turns when you drag to look around. Lower it if the camera turns too fast. (Cursor speed and Camera speed under Controller only change a game controller.)
+
 **1.9.2** (2026-10-10)
 
 - Settings, Display now has **Resolution** for IB2 too: 720p, 1080p (the game's own) or 1440p. Lower is smoother on weaker phones; 1440p is sharper.

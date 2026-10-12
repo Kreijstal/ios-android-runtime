@@ -53,7 +53,7 @@ void touchzones_tick(cpu::Thread& t);
 void install_touchzones(const macho::Image& img);
 // IB3: settings subtitle_size scales the engine's subtitles (game/subtitles.cpp).
 void install_subtitles(const macho::Image& img);
-// IB3: settings look_sensitivity scales looking around by touch (game/look.cpp).
+// Both games: settings look_sensitivity scales looking around by touch (game/look.cpp).
 void install_look_sensitivity(const macho::Image& img);
 
 // IB2 on screens longer than 16:9: serves patched copies of its HUD layout script and

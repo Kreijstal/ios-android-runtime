@@ -4,6 +4,9 @@ Two Android apps, IB2 and IB3, are built from one codebase. Each has its own ver
 
 # IB2
 
+## 1.9.4 (2026-10-12)
+- **Look sensitivity** (new Touch section in Settings, 10% to 300%): how far the view turns when you drag to look around. Lower it if the camera turns too fast. (Cursor speed and Camera speed under Controller only change a game controller.)
+
 ## 1.9.2 (2026-10-10)
 - Settings, Display now has **Resolution** for IB2 too: 720p, 1080p (the game's own) or 1440p. Lower is smoother on weaker phones; 1440p is sharper.
 - Fixed the game running at about 1 FPS on some Samsung phones with Exynos chips (seen on a Galaxy S21, Exynos 2100). The phone's firmware reports the wrong speed for the CPU clock the game times its frames with, so the game thought frames were far shorter than they were and waited about a second on every one. The port now measures the clock's real speed at startup.

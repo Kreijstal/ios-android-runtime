@@ -123,12 +123,10 @@ final class SettingsScreen {
         addRow(sound, slider("Effects", "Audio", "EffectsVolume", 100, 0, 100));
         content.addView(sound);
 
-        if (!ib2) {
-            content.addView(Ui.sectionHeader(a, "Touch"));
-            LinearLayout touch = Ui.card(a);
-            addRow(touch, slider("Look sensitivity", "Touch", "LookSensitivity", 100, 10, 300));
-            content.addView(touch);
-        }
+        content.addView(Ui.sectionHeader(a, "Touch"));
+        LinearLayout touch = Ui.card(a);
+        addRow(touch, slider("Look sensitivity", "Touch", "LookSensitivity", 100, 10, 300));
+        content.addView(touch);
 
         content.addView(Ui.sectionHeader(a, "Controller"));
         LinearLayout pad = Ui.card(a);
