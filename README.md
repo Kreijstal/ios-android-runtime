@@ -9,7 +9,7 @@ An experimental iOS emulator for Android: a compatibility layer that runs ARM64 
 | **IB2** | [IB2 release](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib2) |
 | **IB3** | [IB3 release](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib3) |
 
-The same apps are also on archive.org, with the game's own icon. It is the same app (Android 11+, ARM64); install the `.apk` on your phone and open it. You also need your own `.ipa` of the game. Installing a new version over an old one keeps your game and saves.
+The same apps are also on archive.org, with the game's own icon. It is the same app (Android 10+, ARM64); install the `.apk` on your phone and open it. You also need your own `.ipa` of the game. Installing a new version over an old one keeps your game and saves.
 
 **This repository contains no game files.** It is only the source code of the emulator: a Mach-O loader, and implementations of the parts of iOS the apps call (C library, Objective-C runtime, Foundation, UIKit) on top of Android's OpenGL ES, AAudio and MediaCodec. To run a game you need your own copy of the app as an `.ipa` file; nothing here provides one.
 
@@ -29,6 +29,11 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 <summary><b>Click for IB2</b></summary>
 
 **Download:** [IB2 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib2)
+
+**1.9.5** (2026-10-16)
+
+- Runs on **Android 10** too (was Android 11 and newer).
+- Edit save: bosses now follow an edited **bloodline** too (before, only regular enemies did and bosses kept the level of the old bloodline). Bloodline can be set up to 250 (was 99).
 
 **1.9.4** (2026-10-12)
 
@@ -130,6 +135,11 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 <summary><b>Click for IB3</b></summary>
 
 **Download:** [IB3 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib3)
+
+**1.9.5** (2026-10-16)
+
+- Runs on **Android 10** too (was Android 11 and newer).
+- Edit save: bosses now follow an edited **awakening** too (before, only regular enemies did and bosses kept the level of the old awakening). Awakening can be set up to 250 (was 100).
 
 **1.9.4** (2026-10-12)
 

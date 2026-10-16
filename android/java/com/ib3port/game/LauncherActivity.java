@@ -288,6 +288,12 @@ public class LauncherActivity extends Activity {
 
     // Full screen like the game; a swipe from the edge shows the bars for a moment.
     private void hideSystemBars() {
+        if (Build.VERSION.SDK_INT < 30) {  // Android 10 has no WindowInsetsController: the older flags do the same
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+            return;
+        }
         android.view.WindowInsetsController c = getWindow().getInsetsController();
         if (c == null) return;
         c.hide(android.view.WindowInsets.Type.statusBars() | android.view.WindowInsets.Type.navigationBars());
@@ -874,6 +880,10 @@ public class LauncherActivity extends Activity {
     // a native crash includes the readable parts of Android's crash report (the tombstone).
     private void appendExitReasons(OutputStream out) throws IOException {
         StringBuilder s = new StringBuilder("\n===== How the app closed recently (Android's record) =====\n");
+        if (Build.VERSION.SDK_INT < 30) {  // Android 10 keeps no such record
+            out.write((s + "(not available before Android 11)\n").getBytes(StandardCharsets.UTF_8));
+            return;
+        }
         try {
             android.app.ActivityManager am = getSystemService(android.app.ActivityManager.class);
             List<android.app.ApplicationExitInfo> exits = am.getHistoricalProcessExitReasons(null, 0, 5);

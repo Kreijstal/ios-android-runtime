@@ -9,7 +9,7 @@ BUILD="$ROOT/build-android"
 if [ ! -f "$BUILD/build.ninja" ]; then
     cmake -S "$ROOT" -B "$BUILD" -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
-        -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-30 \
+        -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 \
         -DCMAKE_BUILD_TYPE=${BUILD_TYPE:-RelWithDebInfo}
 fi
 cmake --build "$BUILD" -- "$@"

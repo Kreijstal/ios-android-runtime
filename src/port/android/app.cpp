@@ -100,7 +100,14 @@ void hide_system_bars(ANativeActivity* a) {
     jclass activity_cls = env->GetObjectClass(a->clazz);
     jobject window = env->CallObjectMethod(a->clazz, env->GetMethodID(activity_cls, "getWindow", "()Landroid/view/Window;"));
     jclass window_cls = env->GetObjectClass(window);
-    env->CallObjectMethod(window, env->GetMethodID(window_cls, "getDecorView", "()Landroid/view/View;"));
+    jobject decor = env->CallObjectMethod(window, env->GetMethodID(window_cls, "getDecorView", "()Landroid/view/View;"));
+    if (a->sdkVersion < 30) {  // Android 10 has no WindowInsetsController: the older flags do the same
+        jclass view_cls = env->GetObjectClass(decor);
+        env->CallVoidMethod(decor, env->GetMethodID(view_cls, "setSystemUiVisibility", "(I)V"),
+                            0x1706 /* IMMERSIVE_STICKY, FULLSCREEN, HIDE_NAVIGATION and the LAYOUT_ flags */);
+        if (env->ExceptionCheck()) env->ExceptionClear();
+        return;
+    }
     jobject controller = env->CallObjectMethod(window, env->GetMethodID(window_cls, "getInsetsController", "()Landroid/view/WindowInsetsController;"));
     if (controller && !env->ExceptionCheck()) {
         jclass types = env->FindClass("android/view/WindowInsets$Type");

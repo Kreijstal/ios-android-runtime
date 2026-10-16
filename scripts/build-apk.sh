@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the Android apps (arm64, Android 11+), one per game, from the same code:
+# Builds the Android apps (arm64, Android 10+), one per game, from the same code:
 #   dist/ib3-android-<version>.apk   (com.ib3port.game)
 #   dist/ib2-android-<version>.apk   (com.ib2port.game)
 # The app names and the .apk names are "IB3" / "IB2" and ib3-android / ib2-android, unless android/app-names.local
@@ -21,7 +21,7 @@ rm -rf build-android/apk* && mkdir -p "$COMMON/classes" "$COMMON/lib/arm64-v8a" 
 
 # The Java activities (launcher/installer, dialogs), compiled to classes.dex.
 javac --release 11 -encoding UTF-8 -classpath "$JAR" -d "$COMMON/classes" -Xlint:-options $(find android/java -name '*.java')
-java -cp "$BT/lib/d8.jar" com.android.tools.r8.D8 --release --min-api 30 --lib "$JAR" --output "$COMMON" \
+java -cp "$BT/lib/d8.jar" com.android.tools.r8.D8 --release --min-api 29 --lib "$JAR" --output "$COMMON" \
     $(find "$COMMON/classes" -name '*.class')
 
 # The native library, without debug info (build-android/libib3.so keeps it for crash reports).
@@ -44,7 +44,7 @@ package_app() {
         android/AndroidManifest.xml > "$OUT/AndroidManifest.xml"
     "$BT/aapt2.exe" compile --dir "android/res-$1" -o "$OUT/icon.zip"
     "$BT/aapt2.exe" link -o "$OUT/unsigned.apk" -I "$JAR" --manifest "$OUT/AndroidManifest.xml" \
-        --min-sdk-version 30 --target-sdk-version 35 "$COMMON/res.zip" "$OUT/icon.zip"
+        --min-sdk-version 29 --target-sdk-version 35 "$COMMON/res.zip" "$OUT/icon.zip"
     python3 - "$COMMON" "$OUT" <<'EOF'
 import sys, zipfile
 common, out = sys.argv[1], sys.argv[2]

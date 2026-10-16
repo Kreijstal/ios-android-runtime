@@ -38,12 +38,14 @@ namespace {
 constexpr const char* kPendingFile = "saveedit-pending.ini";
 constexpr const char* kCurrentFile = "saveedit-current.ini";
 constexpr const char* kUsedMarker = "saveedit-used";
+constexpr const char* kBloodlineMarker = "saveedit-bloodline";  // the bloodline the launcher set last
 constexpr u32 kCurrencySize = 0x24;  // IB3: Currency[2] (gold, chips) of FCurrency { Current, Purchased, ... }
 constexpr u32 kCurrencyTotalAcquired = 0x10;
 constexpr u64 kFrameNode = 0x18;     // FFrame::Node (the function a frame runs)
 
 GuestAddr g_tick = 0, g_process_internal = 0;  // trampolines
 bool g_skip_checks = false, g_save_pending = false;
+int g_edited_bloodline = 0;  // kBloodlineMarker's number, 0 = none
 
 // Script functions skipped for edited saves: the games' checks that undo edited numbers.
 const std::set<std::string> kSkippedChecks = {"FixHackedPlayerStats", "CheckGoldPurchasedHack", "LogHackedStatsEvent",
@@ -339,10 +341,84 @@ void on_finish_loading(cpu::Thread& t, GuestAddr pc) {
     }
     write_int(t, obj, "PotentiallyManipulatedData", 0);
     write_int(t, obj, "PotentialGoldHack", 0);
+    if (load_edits.count("Bloodline")) {
+        g_edited_bloodline = load_edits["Bloodline"];
+        std::ofstream(kBloodlineMarker) << g_edited_bloodline << "\n";
+    }
+}
+
+// --- Bosses after a bloodline edit --------------------------------------------------------------
+// Both games give bosses their levels once, when a bloodline's world is made (SwordPC.GenerateRandomWorld):
+// the player's WorldLevel from the bloodline, then each boss spawn point's FixedData.BossXpLevel from that,
+// and the save keeps both. Regular enemies follow the bloodline itself, so after an edit they changed and the
+// bosses did not. While the save is on the bloodline the launcher set (a rebirth moves it on), WorldLevel is
+// worked out again, and a boss whose kept level is outside what that WorldLevel gives gets a new one the
+// game's own way (SwordBossSpawnPoint.SetBossLevel) as its level is read. Arena and ClashMob bosses have
+// levels of their own and are left alone.
+
+GuestAddr player_pawn(cpu::Thread& t) {
+    GuestAddr pc = ue::player_controller(t), pawn = 0;
+    if (!pc || !ue::read_property(t, pc, "PlayerPawn", pawn) || !pawn || !ue::is_a(t, pawn, "SwordPlayer")) return 0;
+    return pawn;
+}
+
+bool on_edited_bloodline(cpu::Thread& t, GuestAddr pawn) {
+    int gen = 0;
+    return g_edited_bloodline > 0 && read_int(t, pawn, "GenerationCount", gen) && gen == g_edited_bloodline;
+}
+
+// The WorldLevel a new world of this bloodline gets: IB3's SwordPlayer.SetupWorldLevel (bloodline with the
+// game's difficulty adjustment, hardcore mode); IB2 works it out inside GenerateRandomWorld.
+void refresh_world_level(cpu::Thread& t, GuestAddr pawn) {
+    int before = 0, after = 0, gen = 0, per_gen = 0;
+    read_int(t, pawn, "WorldLevel", before);
+    if (!is_ib2()) {
+        alignas(16) u8 params[256] = {};
+        ue::call_event(t, pawn, "SetupWorldLevel", params);
+    } else if (read_int(t, pawn, "GenerationCount", gen) && read_int(t, pawn, "LevelIncreasePerGen", per_gen)) {
+        write_int(t, pawn, "WorldLevel", std::max(1, (gen - 1) * per_gen));
+    }
+    read_int(t, pawn, "WorldLevel", after);
+    if (after != before) LOG_INFO("saveedit: world level %d -> %d (bloodline %d)", before, after, g_edited_bloodline);
+}
+
+bool in_clashmob(cpu::Thread& t, GuestAddr pc) {
+    alignas(16) u8 params[256] = {};
+    int ret = ue::param_offset(t, pc, "GetIsClashMob", "ReturnValue");
+    return ret >= 0 && ue::call_event(t, pc, "GetIsClashMob", params) && *reinterpret_cast<u32*>(params + ret);
+}
+
+// SwordBossSpawnPoint.GetBossLevel is starting.
+void on_boss_level(cpu::Thread& t, GuestAddr sp) {
+    GuestAddr pawn = player_pawn(t);
+    bool arena = false;
+    if (!pawn || !ue::is_a(t, sp, "SwordBossSpawnPoint") || !on_edited_bloodline(t, pawn)) return;
+    if ((ue::read_bool(t, sp, "bIsArenaFight", arena) && arena) || in_clashmob(t, ue::player_controller(t))) return;
+    refresh_world_level(t, pawn);
+    int level_off = ue::struct_member_offset(t, sp, "FixedData", "BossXpLevel");
+    int world = 0, bottom = 0, top = 0;
+    if (level_off < 0 || !read_int(t, pawn, "WorldLevel", world) || !read_int(t, sp, "PlayerDrivenLevelDifferenceBottom", bottom) ||
+        !read_int(t, sp, "PlayerDrivenLevelDifferenceTop", top))
+        return;
+    s32 kept = *gptr<s32>(sp + level_off);
+    if (kept <= 0) return;  // none kept: the game works it out from WorldLevel itself
+    int scale = 0;  // IB3's GetWorldLevelAdjustedBossLevel widens the range as WorldLevel grows
+    if (!is_ib2() && world > 1 && read_int(t, pawn, "BossXpLevelAdjustScale", scale) && scale > 0) {
+        float f = 1.0f + (float)world / (float)scale;
+        bottom = std::max(0, (int)((float)bottom * f));
+        top = std::max(0, (int)((float)top * f));
+    }
+    if (kept >= world + bottom && kept <= world + top) return;
+    alignas(16) u8 params[256] = {};
+    int arg = ue::param_offset(t, sp, "SetBossLevel", "WorldLevel");
+    *reinterpret_cast<s32*>(params + std::max(arg, 0)) = world;
+    if (!ue::call_event(t, sp, "SetBossLevel", params)) return;
+    LOG_INFO("saveedit: boss at %s: kept level %d -> %d (world level %d)", ue::object_name(t, sp).c_str(), kept,
+             *gptr<s32>(sp + level_off), world);
 }
 
 // UObject::ProcessInternal runs a script function's body. The ones this file watches:
-enum class Watched { None, Check, FinishLoading, BuyStoreGem, RemoveStoreRow, CheatRow };
+enum class Watched { None, Check, FinishLoading, BossLevel, BuyStoreGem, RemoveStoreRow, CheatRow };
 Watched watched(cpu::Thread& t, GuestAddr function) {
     static std::mutex mutex;
     static std::unordered_map<GuestAddr, Watched> known;
@@ -352,6 +428,7 @@ Watched watched(cpu::Thread& t, GuestAddr function) {
     std::string name = ue::object_name(t, function);
     Watched w = kSkippedChecks.count(name) ? Watched::Check
                 : name == "FinishLoadingPlayerFromSaveGame" ? Watched::FinishLoading
+                : name == "GetBossLevel" ? Watched::BossLevel
                 : name == "OnBuyStoreGem" ? Watched::BuyStoreGem
                 : name == "RemoveItemFromItemList" ? Watched::RemoveStoreRow
                 : is_cheat_row_handler(name) ? Watched::CheatRow : Watched::None;
@@ -791,6 +868,12 @@ void on_tick(cpu::Thread& t) {
         LOG_INFO("saveedit: applying %zu item action(s) in the world", edits.size());
         g_save_pending |= apply_in_world(t, o, edits);
     }
+    static GuestAddr refreshed_for = 0;  // once per player: bosses then read the new WorldLevel
+    if (o.pawn != refreshed_for && on_edited_bloodline(t, o.pawn)) {
+        refreshed_for = o.pawn;
+        refresh_world_level(t, o.pawn);
+        g_save_pending = true;
+    }
     if (g_save_pending) {  // the edited numbers are only in memory until the game saves
         g_save_pending = false;
         save_now(t, o);
@@ -862,7 +945,8 @@ void install_save_editor(const macho::Image& img) {
     // The script interpreter is hooked only when there are edits to make, or the save was edited (its
     // checks run on every load); otherwise the game runs exactly as before.
     g_skip_checks = file_exists(kUsedMarker);
-    if (g_skip_checks || file_exists(kPendingFile) || settings::get().gem_shop_restock || settings::get().developer_mode ||
+    std::ifstream(kBloodlineMarker) >> g_edited_bloodline;
+    if (g_skip_checks || file_exists(kPendingFile) || g_edited_bloodline > 0 || settings::get().gem_shop_restock || settings::get().developer_mode ||
         clashmob_wants_script_hook()) {
         if (GuestAddr pi = img.find("__ZN7UObject15ProcessInternalER6FFramePv"))
             g_process_internal = hook::install(pi, "UObject::ProcessInternal", [](cpu::Thread& t) {
@@ -871,6 +955,8 @@ void install_save_editor(const macho::Image& img) {
                 Watched w = watched(t, fn);
                 if (w == Watched::FinishLoading) {
                     on_finish_loading(t, t.x(0));
+                } else if (w == Watched::BossLevel && g_edited_bloodline > 0) {
+                    on_boss_level(t, t.x(0));
                 } else if (w == Watched::CheatRow && settings::get().developer_mode) {
                     if (cheat_row_called(t, t.x(0), t.x(1), ue::object_name(t, fn))) return;  // handled: skip the original
                 } else if (w == Watched::BuyStoreGem && settings::get().gem_shop_restock) {

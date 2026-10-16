@@ -229,6 +229,8 @@ final class SaveEditorScreen {
     // --- Limits: what the game can take. The game reports its XP table and its own caps ([Limits]).
 
     private static final int MAX_LEVEL = 50;  // the last level the games' XP table (NextLevelXPTargets) covers
+    // Bloodline / awakening: neither game's scripts limit it (IB3's CSMaxAwakening 100 is read by nothing).
+    private static final int MAX_BLOODLINE = 250;
 
     private long reportedLong(String key, long fallback) {
         try {
@@ -263,7 +265,7 @@ final class SaveEditorScreen {
                 limit = Math.max(0, xpToNext(level) - 1);
                 return current.containsKey("Level") && current.get("Level") == level ? Math.max(limit, now) : limit;
             case "StatPoints": limit = 999; break;
-            case "Bloodline": limit = game.equals("3") ? reportedLong("MaxBloodline", 100) : 99; break;
+            case "Bloodline": limit = MAX_BLOODLINE; break;
             case "GemCarry": return reportedLong("MaxGemCarry", 3);
             default:
                 if (key.startsWith("Stat")) limit = game.equals("3") ? 100 : 999;  // IB3's own max-out cheat uses 100

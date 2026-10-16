@@ -4,6 +4,10 @@ Two Android apps, IB2 and IB3, are built from one codebase. Each has its own ver
 
 # IB2
 
+## 1.9.5 (2026-10-16)
+- Runs on **Android 10** too (was Android 11 and newer).
+- Edit save: bosses now follow an edited **bloodline** too (before, only regular enemies did and bosses kept the level of the old bloodline). Bloodline can be set up to 250 (was 99).
+
 ## 1.9.4 (2026-10-12)
 - **Look sensitivity** (new Touch section in Settings, 10% to 300%): how far the view turns when you drag to look around. Lower it if the camera turns too fast. (Cursor speed and Camera speed under Controller only change a game controller.)
 
@@ -81,6 +85,10 @@ Two Android apps, IB2 and IB3, are built from one codebase. Each has its own ver
 - First IB2 build, with sharp character shadows on GPUs other than Apple's.
 
 # IB3
+
+## 1.9.5 (2026-10-16)
+- Runs on **Android 10** too (was Android 11 and newer).
+- Edit save: bosses now follow an edited **awakening** too (before, only regular enemies did and bosses kept the level of the old awakening). Awakening can be set up to 250 (was 100).
 
 ## 1.9.4 (2026-10-12)
 - **Subtitle size** (Settings, Display: 100% to 200%): the subtitles in cutscenes and fights can be made bigger. Long lines wrap onto two lines.
