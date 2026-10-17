@@ -351,9 +351,10 @@ void on_finish_loading(cpu::Thread& t, GuestAddr pc) {
 // Both games give bosses their levels once, when a bloodline's world is made (SwordPC.GenerateRandomWorld):
 // the player's WorldLevel from the bloodline, then each boss spawn point's FixedData.BossXpLevel from that,
 // and the save keeps both. Regular enemies follow the bloodline itself, so after an edit they changed and the
-// bosses did not. While the save is on the bloodline the launcher set (a rebirth moves it on), WorldLevel is
+// bosses did not. While the save is on the bloodline the launcher set or a later one, WorldLevel is
 // worked out again, and a boss whose kept level is outside what that WorldLevel gives gets a new one the
-// game's own way (SwordBossSpawnPoint.SetBossLevel) as its level is read. Arena and ClashMob bosses have
+// game's own way (SwordBossSpawnPoint.SetBossLevel) as its level is read. A rebirth since then makes new levels
+// from the new bloodline, so after one this finds nothing to change. Arena and ClashMob bosses have
 // levels of their own and are left alone.
 
 GuestAddr player_pawn(cpu::Thread& t) {
@@ -362,9 +363,11 @@ GuestAddr player_pawn(cpu::Thread& t) {
     return pawn;
 }
 
+// The save is on the bloodline the launcher set, or a later one (rebirths since then): story bosses ignore the
+// bloodline after any rebirth too.
 bool on_edited_bloodline(cpu::Thread& t, GuestAddr pawn) {
     int gen = 0;
-    return g_edited_bloodline > 0 && read_int(t, pawn, "GenerationCount", gen) && gen == g_edited_bloodline;
+    return g_edited_bloodline > 0 && read_int(t, pawn, "GenerationCount", gen) && gen >= g_edited_bloodline;
 }
 
 // The WorldLevel a new world of this bloodline gets: IB3's SwordPlayer.SetupWorldLevel (bloodline with the
@@ -386,6 +389,23 @@ bool in_clashmob(cpu::Thread& t, GuestAddr pc) {
     alignas(16) u8 params[256] = {};
     int ret = ue::param_offset(t, pc, "GetIsClashMob", "ReturnValue");
     return ret >= 0 && ue::call_event(t, pc, "GetIsClashMob", params) && *reinterpret_cast<u32*>(params + ret);
+}
+
+// IB2: SwordBoss.SetupLevelData(Generation, WorldLevelAdjust, PC) is starting; it turns the boss's PawnLevel into
+// its stats. Story bosses (SuperBossIndex > 1: the Archivist and the like) never read their spawn point's level:
+// theirs is a fixed base plus a step per New Game+, whatever the bloodline. On the edited bloodline they get at
+// least the WorldLevel the regular bosses are built around.
+void on_boss_setup(cpu::Thread& t, GuestAddr boss) {
+    GuestAddr pawn = player_pawn(t);
+    int super_index = 0, level = 0, world = 0;
+    bool done = false;
+    if (!pawn || !ue::is_a(t, boss, "SwordBoss") || !on_edited_bloodline(t, pawn)) return;
+    if (!read_int(t, boss, "SuperBossIndex", super_index) || super_index <= 1) return;
+    if ((ue::read_bool(t, boss, "bLevelDataSetup", done) && done) || in_clashmob(t, ue::player_controller(t))) return;
+    refresh_world_level(t, pawn);
+    if (!read_int(t, boss, "PawnLevel", level) || !read_int(t, pawn, "WorldLevel", world) || level >= world) return;
+    write_int(t, boss, "PawnLevel", world);
+    LOG_INFO("saveedit: story boss %s: level %d -> %d (world level %d)", ue::object_name(t, boss).c_str(), level, world, world);
 }
 
 // SwordBossSpawnPoint.GetBossLevel is starting.
@@ -418,7 +438,7 @@ void on_boss_level(cpu::Thread& t, GuestAddr sp) {
 }
 
 // UObject::ProcessInternal runs a script function's body. The ones this file watches:
-enum class Watched { None, Check, FinishLoading, BossLevel, BuyStoreGem, RemoveStoreRow, CheatRow };
+enum class Watched { None, Check, FinishLoading, BossLevel, BossSetup, BuyStoreGem, RemoveStoreRow, CheatRow };
 Watched watched(cpu::Thread& t, GuestAddr function) {
     static std::mutex mutex;
     static std::unordered_map<GuestAddr, Watched> known;
@@ -429,6 +449,7 @@ Watched watched(cpu::Thread& t, GuestAddr function) {
     Watched w = kSkippedChecks.count(name) ? Watched::Check
                 : name == "FinishLoadingPlayerFromSaveGame" ? Watched::FinishLoading
                 : name == "GetBossLevel" ? Watched::BossLevel
+                : name == "SetupLevelData" && is_ib2() ? Watched::BossSetup
                 : name == "OnBuyStoreGem" ? Watched::BuyStoreGem
                 : name == "RemoveItemFromItemList" ? Watched::RemoveStoreRow
                 : is_cheat_row_handler(name) ? Watched::CheatRow : Watched::None;
@@ -957,6 +978,8 @@ void install_save_editor(const macho::Image& img) {
                     on_finish_loading(t, t.x(0));
                 } else if (w == Watched::BossLevel && g_edited_bloodline > 0) {
                     on_boss_level(t, t.x(0));
+                } else if (w == Watched::BossSetup && g_edited_bloodline > 0) {
+                    on_boss_setup(t, t.x(0));
                 } else if (w == Watched::CheatRow && settings::get().developer_mode) {
                     if (cheat_row_called(t, t.x(0), t.x(1), ue::object_name(t, fn))) return;  // handled: skip the original
                 } else if (w == Watched::BuyStoreGem && settings::get().gem_shop_restock) {

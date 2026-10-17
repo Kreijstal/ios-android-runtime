@@ -30,6 +30,11 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 
 **Download:** [IB2 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib2)
 
+**1.9.6** (2026-10-17)
+
+- Edit save: **story bosses** (the Archivist and the others) now follow an edited bloodline too. The game gives them a fixed level that only goes up with New Game+, whatever the bloodline, so they stayed far below the regular enemies; on an edited save they are now at least as strong as the regular bosses.
+- Edit save: the boss levels keep following an edited bloodline after a rebirth (before, the fix stopped at the next bloodline).
+
 **1.9.5** (2026-10-16)
 
 - Runs on **Android 10** too (was Android 11 and newer).
