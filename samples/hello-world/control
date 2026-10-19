@@ -1,0 +1,8 @@
+Package: dev.kreijstal.iosandroid.helloworld
+Name: Hello World
+Version: 0.1.0
+Architecture: iphoneos-arm
+Description: Minimal UIKit fixture for iOS Android Runtime
+Maintainer: Kreijstal
+Author: Kreijstal
+Section: Utilities

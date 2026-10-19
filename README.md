@@ -1,4 +1,69 @@
-# ib-2-3-android
+# iOS Android Runtime
+
+An experimental project to extend [ib-2-3-android](https://github.com/jelqedagain/ib-2-3-android)
+into an iOS app runtime for ARM64 Android devices. This fork preserves the upstream
+history and MIT license.
+
+**General iOS app support is a development goal.** The inherited runtime and Android
+launcher still target Infinity Blade II and III. This fork does not yet run arbitrary
+IPAs, and the Hello World sample below has been compiled but has not been run on Android.
+
+## First target: Hello World
+
+[`samples/hello-world`](samples/hello-world) is a small Objective-C UIKit application
+with a window, a view controller, and a label. It uses no game files, Unreal Engine,
+storyboards, third-party libraries, or Swift runtime. It is the first fixture for
+bringing up the general runtime.
+
+With Theos, an iOS SDK, and its Linux iOS compiler toolchain installed:
+
+```sh
+export THEOS=/opt/theos  # use your Theos installation path
+make -C samples/hello-world clean package FINALPACKAGE=1
+```
+
+The output is `samples/hello-world/packages/dev.kreijstal.iosandroid.helloworld_0.1.0.ipa`.
+It contains an ARM64 **iOS device** binary, with iOS 14.0 as the deployment target.
+It is signed ad hoc by Theos; installation on a stock iPhone needs suitable signing.
+The source is tracked; generated IPAs and build files are ignored.
+
+The first runtime milestone is to launch this IPA on ARM64 Android, call
+`application:didFinishLaunchingWithOptions:`, display **Hello World!**, and handle
+foreground/background transitions. Building an IPA alone does not establish runtime
+compatibility.
+
+## Runtime roadmap
+
+| Step | Work | Completion criterion |
+| --- | --- | --- |
+| 1. Linux Android builds | Remove the Windows `.exe` assumptions in `scripts/build-apk.sh`; discover an Android SDK/NDK and build tools on Linux. | Build the Android command-line runner and APK on Linux. |
+| 2. App discovery and import | Read XML and binary `Info.plist`, use `CFBundleIdentifier` and `CFBundleExecutable`, and select `Payload/*.app`. Replace the `SwordGame` and `CookedIPhone/Engine.xxx` checks in the installers and startup paths. | Import Hello World under its own bundle name and keep its files and user data separate from other apps. |
+| 3. Core runtime and game profiles | Separate Mach-O loading, Objective-C, libc, Foundation, and UIKit startup from `src/game` hooks. Apply game patches only for explicitly recognized apps. | Launch Hello World without applying Unreal Engine hooks; preserve the existing game paths for regression checks. |
+| 4. UIKit lifecycle and rendering | Supply the window/view/label rendering path and event loop for an app that never creates an EAGL surface. | Show the label and process lifecycle events on an Android device. |
+| 5. Loader and API coverage | Validate Mach-O architecture, device platform, encryption status, and load commands; report missing symbols/selectors. Add dynamic framework loading and further APIs as fixtures require them. | Unsupported apps fail with actionable diagnostics; each supported feature has a small source fixture. |
+| 6. Broader runtimes | Add fixtures for blocks, dispatch, networking, embedded frameworks, and then Swift/SwiftUI dependencies. | Publish compatibility results per fixture, Android device, and runtime revision. |
+
+Initial scope is unencrypted ARM64 iOS device apps with small Objective-C/UIKit
+dependencies. Simulator binaries, arm64e, Swift, SwiftUI, Metal, WebKit, App Store
+encryption, and Apple-hosted services are outside the initial milestone. Additional
+fixtures should make each extension of the runtime measurable.
+
+## Current implementation gaps
+
+- [`src/main.cpp`](src/main.cpp) loads `SwordGame` explicitly, builds its guest
+  arguments with that name, and invokes game hooks during common startup.
+- [`LauncherActivity.java`](android/java/com/ib3port/game/LauncherActivity.java) and
+  [`src/launcher/install.cpp`](src/launcher/install.cpp) validate a game-specific
+  bundle layout rather than an arbitrary app's metadata.
+- [`src/port/android/app.cpp`](src/port/android/app.cpp) starts the inherited game
+  path, while [`src/uikit`](src/uikit) implements the UIKit subset needed by those games.
+- [`src/hle.cpp`](src/hle.cpp) logs unimplemented symbols and supplies stubs that
+  return zero. General app bring-up needs to distinguish implemented behavior from
+  these fallbacks.
+- No Android runtime build or on-device launch has been verified for this fork yet.
+  The instructions below describe the inherited upstream project and its releases.
+
+## Upstream project: ib-2-3-android
 
 An experimental iOS emulator for Android: a compatibility layer that runs ARM64 iOS apps built on Unreal Engine 3. It is a hobby and research project.
 
