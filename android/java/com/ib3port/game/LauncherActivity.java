@@ -64,6 +64,7 @@ import java.util.zip.ZipOutputStream;
  *   --ez copyLogs true             copy the log report to the clipboard (what Share logs does)
  *   --ez shareLogs true            open the share sheet with the log report file (holding Share logs)
  *   --es logReportTo /path/file.txt  write the log report to that file
+ *   --es fakeVersion 1.0           check for updates as if this were that version (Updater)
  */
 public class LauncherActivity extends Activity {
     private static final int PICK_IPA = 1, PICK_BACKUP = 2, PICK_RESTORE = 3;
@@ -73,11 +74,15 @@ public class LauncherActivity extends Activity {
     private static final long FILE_LOG_LIMIT = 4L << 20;  // bytes of each log in a shared file (a Discord upload is 10 MB)
     private static final long CLIP_LOG_LIMIT = 96L << 10;  // and in the clipboard, which holds well under 1 MB
 
-    private String gameName, ipaVersion, bundleId, size;
+    private String gameName, ipaVersion, bundleId, size, updatePage, apkName;
     private TextView status;
     private ProgressBar progress;
     private View choose;
     private final List<View> menuButtons = new ArrayList<>();
+    // Updates (Updater): checked once per app start; the release found, if any, shows on the menu.
+    private static boolean updateChecked;
+    private static Updater.Release update;
+    private boolean updateWaitsForPermission;  // the player was sent to allow installing apps
 
     private File filesDir() {
         File dir = getExternalFilesDir(null);
@@ -102,6 +107,8 @@ public class LauncherActivity extends Activity {
             ipaVersion = meta.getString("ib.ipaVersion");
             bundleId = meta.getString("ib.bundleId");
             size = meta.getString("ib.size");
+            updatePage = meta.getString("ib.updatePage", "");
+            apkName = meta.getString("ib.apkName", "");
         } catch (PackageManager.NameNotFoundException e) {
             throw new IllegalStateException(e);
         }
@@ -113,6 +120,7 @@ public class LauncherActivity extends Activity {
             return;
         }
         buildMenuScreen();
+        checkForUpdate(intent.getStringExtra("fakeVersion"));
         String backupTo = intent.getStringExtra("backupTo"), restoreFrom = intent.getStringExtra("restoreFrom");
         if (backupTo != null) backUp(null, new File(backupTo));
         else if (restoreFrom != null) restore(null, new File(restoreFrom));
@@ -354,6 +362,11 @@ public class LauncherActivity extends Activity {
         left.addView(makeStatus(), new LinearLayout.LayoutParams(dp(320), LinearLayout.LayoutParams.WRAP_CONTENT));
 
         LinearLayout card = Ui.card(this);
+        if (update != null) {
+            String sub = (update.notes != null ? update.notes + " " : "") + "Tap to update; your saves stay.";
+            LinearLayout row = (LinearLayout) addMenuRow(card, "Update to " + update.version, sub, v -> confirmUpdate());
+            ((TextView) ((LinearLayout) row.getChildAt(0)).getChildAt(0)).setTextColor(Ui.ACCENT);
+        }
         addMenuRow(card, "Cheats", "Developer mode, items, gems, god mode", v -> showCheats());
         addMenuRow(card, "Saves", "Edit, back up or restore your progress", v -> showSaves());
         if (!isIb2()) addMenuRow(card, "ClashMobs", "Live events, your name on the leaderboards", v -> showClashMobs());
@@ -437,6 +450,87 @@ public class LauncherActivity extends Activity {
         card.addView(row);
         menuButtons.add(row);
         return row;
+    }
+
+    // Asks the app's archive.org page for a newer version, once per app start, unless Settings › Check for updates is off.
+    private void checkForUpdate(String fakeVersion) {
+        if (updateChecked || updatePage.isEmpty() || apkName.isEmpty() || new IniFile(new File(filesDir(), "settings.ini")).get("Updates", "Check", 1) == 0) return;
+        updateChecked = true;
+        String current = fakeVersion != null ? fakeVersion : appVersion();
+        new Thread(() -> {
+            Updater.Release found;
+            try {
+                found = Updater.check(updatePage, apkName, current);
+            } catch (Exception e) {
+                android.util.Log.i("ib3", "update check failed: " + e);
+                return;  // offline or archive.org busy: try again next time
+            }
+            android.util.Log.i("ib3", "update check: " + (found != null ? found.version + " (" + found.file + ")" : "up to date") + ", this is " + current);
+            if (found == null) return;
+            runOnUiThread(() -> {
+                update = found;
+                if (!showingSettings && !isFinishing() && status != null && choose == null) buildMenuScreen();
+            });
+        }).start();
+    }
+
+    private void confirmUpdate() {
+        Updater.Release r = update;
+        if (r == null) return;
+        String size = r.size > 0 ? " The download is " + Updater.megabytes(r.size) + "." : "";
+        new AlertDialog.Builder(this)
+                .setTitle("Update to " + r.version + "?")
+                .setMessage((r.notes != null ? r.notes + "\n\n" : "") + "Your saves, settings and installed game stay as they are." + size
+                        + " Android asks you to confirm the install.")
+                .setNegativeButton("Later", null)
+                .setPositiveButton("Update", (d, w) -> {
+                    if (Updater.mayInstall(this)) {
+                        downloadUpdate(r);
+                        return;
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle("Allow updates")
+                            .setMessage("Android needs your OK for this app to install its own updates. On the next screen, turn on "
+                                    + "\"Allow from this source\", then come back.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Open settings", (d2, w2) -> {
+                                updateWaitsForPermission = true;
+                                startActivity(Updater.installPermissionSettings(this));
+                            })
+                            .show();
+                })
+                .show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (updateWaitsForPermission && update != null) {
+            updateWaitsForPermission = false;
+            if (Updater.mayInstall(this)) downloadUpdate(update);
+            else if (status != null) status.setText("Installing updates is still not allowed for this app.");
+        }
+    }
+
+    private void downloadUpdate(Updater.Release r) {
+        int[] shown = {-1};
+        runTask("Downloading the update...", () -> {
+            File apk = Updater.download(this, updatePage, r, (done, total) -> {
+                int pct = total > 0 ? (int) (done * 100 / total) : -1;
+                if (pct == shown[0]) return;
+                shown[0] = pct;
+                runOnUiThread(() -> status.setText("Downloading the update... " + (pct >= 0 ? pct + "%" : Updater.megabytes(done))));
+            });
+            runOnUiThread(() -> {
+                status.setText("Installing the update...");
+                try {
+                    Updater.install(this, apk, confirm -> startActivity(confirm), message -> status.setText(message));
+                } catch (IOException | RuntimeException e) {
+                    status.setText("The update could not start: " + e.getMessage());
+                }
+            });
+            return null;
+        });
     }
 
     private boolean showingSettings;  // a page opened from the menu: Back returns to backTarget

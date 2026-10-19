@@ -3,12 +3,15 @@
      a NativeActivity (GameActivity); LauncherActivity installs it from the player's .ipa first. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="@PACKAGE@"
-    android:versionCode="33"
-    android:versionName="1.9.6">
+    android:versionCode="34"
+    android:versionName="1.9.7">
 
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
-    <!-- ClashMobs: the community ClashMob server (src/game/clashmob.cpp); nothing else goes online. -->
+    <!-- ClashMobs: the community ClashMob server (src/game/clashmob.cpp), and the update check: the app's
+         archive.org page (Updater.java, when the build names one). Nothing else goes online. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Updates: the downloaded new version goes to Android's installer, which asks the player first. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:label="@LABEL@"
@@ -22,6 +25,9 @@
         <meta-data android:name="ib.bundleId" android:value="@BUNDLE_ID@" />
         <meta-data android:name="ib.ipaVersion" android:value="@IPA_VERSION@" />
         <meta-data android:name="ib.size" android:value="@SIZE@" />
+        <!-- Updates (Updater.java): the archive.org item with newer <apkName>-<version>.apk files; empty = no checks. -->
+        <meta-data android:name="ib.apkName" android:value="@APK_NAME@" />
+        <meta-data android:name="ib.updatePage" android:value="@UPDATE_PAGE@" />
         <activity
             android:name="com.ib3port.game.LauncherActivity"
             android:exported="true"

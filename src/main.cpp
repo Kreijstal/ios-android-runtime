@@ -221,6 +221,7 @@ int main(int argc, char** argv) {
     game::install_touchzones(img);
     game::install_subtitles(img);
     game::install_look_sensitivity(img);
+    game::install_fight_text_scale(img);
     game::install_clashmob(img);
     {
         const auto& st = settings::get();

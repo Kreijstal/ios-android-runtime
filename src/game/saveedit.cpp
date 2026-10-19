@@ -39,6 +39,7 @@ constexpr const char* kPendingFile = "saveedit-pending.ini";
 constexpr const char* kCurrentFile = "saveedit-current.ini";
 constexpr const char* kUsedMarker = "saveedit-used";
 constexpr const char* kBloodlineMarker = "saveedit-bloodline";  // the bloodline the launcher set last
+constexpr const char* kStoryBossFile = "saveedit-storyboss";   // the story boss level the launcher set
 constexpr u32 kCurrencySize = 0x24;  // IB3: Currency[2] (gold, chips) of FCurrency { Current, Purchased, ... }
 constexpr u32 kCurrencyTotalAcquired = 0x10;
 constexpr u64 kFrameNode = 0x18;     // FFrame::Node (the function a frame runs)
@@ -46,6 +47,7 @@ constexpr u64 kFrameNode = 0x18;     // FFrame::Node (the function a frame runs)
 GuestAddr g_tick = 0, g_process_internal = 0;  // trampolines
 bool g_skip_checks = false, g_save_pending = false;
 int g_edited_bloodline = 0;  // kBloodlineMarker's number, 0 = none
+int g_story_boss_level = 0;  // kStoryBossFile's number, 0 = the game's own levels
 
 // Script functions skipped for edited saves: the games' checks that undo edited numbers.
 const std::set<std::string> kSkippedChecks = {"FixHackedPlayerStats", "CheckGoldPurchasedHack", "LogHackedStatsEvent",
@@ -139,6 +141,7 @@ std::map<std::string, int> current_values(cpu::Thread& t, const Objects& o) {
     ue::TArray<u8> gems{};  // the gem bag: gems in it, and how many it holds
     if (ue::read_property(t, o.pawn, "PlayerUnequippedGems", gems)) v["Gems"] = gems.num;
     if (int size = gem_bag_size(t, o.pawn); size >= 0) v["GemBagSize"] = size;
+    v["StoryBoss"] = g_story_boss_level;
     return v;
 }
 
@@ -293,6 +296,13 @@ void on_finish_loading(cpu::Thread& t, GuestAddr pc) {
     Edits edits = read_edits();
     std::map<std::string, int> load_edits;
     int n;
+    if (take(edits, "StoryBoss", n)) {  // a setting, not part of the save: kept in its own file
+        g_story_boss_level = std::clamp(n, 0, 999999);
+        if (g_story_boss_level) std::ofstream(kStoryBossFile) << g_story_boss_level << "\n";
+        else std::remove(kStoryBossFile);
+        LOG_INFO("saveedit: story boss level %d%s", g_story_boss_level, g_story_boss_level ? "" : " (the game's own)");
+        write_edits(edits);
+    }
     for (const char* id : {"Gold", "Chips"})
         if (take(edits, id, n)) load_edits[id] = n;
     for (const Field& f : kFields)
@@ -363,8 +373,7 @@ GuestAddr player_pawn(cpu::Thread& t) {
     return pawn;
 }
 
-// The save is on the bloodline the launcher set, or a later one (rebirths since then): story bosses ignore the
-// bloodline after any rebirth too.
+// The save is on the bloodline the launcher set, or a later one (rebirths since then).
 bool on_edited_bloodline(cpu::Thread& t, GuestAddr pawn) {
     int gen = 0;
     return g_edited_bloodline > 0 && read_int(t, pawn, "GenerationCount", gen) && gen >= g_edited_bloodline;
@@ -391,21 +400,18 @@ bool in_clashmob(cpu::Thread& t, GuestAddr pc) {
     return ret >= 0 && ue::call_event(t, pc, "GetIsClashMob", params) && *reinterpret_cast<u32*>(params + ret);
 }
 
-// IB2: SwordBoss.SetupLevelData(Generation, WorldLevelAdjust, PC) is starting; it turns the boss's PawnLevel into
-// its stats. Story bosses (SuperBossIndex > 1: the Archivist and the like) never read their spawn point's level:
-// theirs is a fixed base plus a step per New Game+, whatever the bloodline. On the edited bloodline they get at
-// least the WorldLevel the regular bosses are built around.
+// SwordBoss.SetupLevelData is starting; it turns the boss's PawnLevel into its stats. Story bosses
+// (SuperBossIndex > 1: IB2's Archivist, IB3's God King and the like) never read their spawn point's level: the
+// games give them a fixed base plus a step per New Game+, whatever the bloodline. The launcher's Story boss level
+// (Edit save) sets it instead. ClashMob bosses keep the event's level.
 void on_boss_setup(cpu::Thread& t, GuestAddr boss) {
-    GuestAddr pawn = player_pawn(t);
-    int super_index = 0, level = 0, world = 0;
+    int super_index = 0, level = 0;
     bool done = false;
-    if (!pawn || !ue::is_a(t, boss, "SwordBoss") || !on_edited_bloodline(t, pawn)) return;
-    if (!read_int(t, boss, "SuperBossIndex", super_index) || super_index <= 1) return;
+    if (!ue::is_a(t, boss, "SwordBoss") || !read_int(t, boss, "SuperBossIndex", super_index) || super_index <= 1) return;
     if ((ue::read_bool(t, boss, "bLevelDataSetup", done) && done) || in_clashmob(t, ue::player_controller(t))) return;
-    refresh_world_level(t, pawn);
-    if (!read_int(t, boss, "PawnLevel", level) || !read_int(t, pawn, "WorldLevel", world) || level >= world) return;
-    write_int(t, boss, "PawnLevel", world);
-    LOG_INFO("saveedit: story boss %s: level %d -> %d (world level %d)", ue::object_name(t, boss).c_str(), level, world, world);
+    if (!read_int(t, boss, "PawnLevel", level) || level == g_story_boss_level) return;
+    write_int(t, boss, "PawnLevel", g_story_boss_level);
+    LOG_INFO("saveedit: story boss %s: level %d -> %d (Story boss level)", ue::object_name(t, boss).c_str(), level, g_story_boss_level);
 }
 
 // SwordBossSpawnPoint.GetBossLevel is starting.
@@ -449,7 +455,7 @@ Watched watched(cpu::Thread& t, GuestAddr function) {
     Watched w = kSkippedChecks.count(name) ? Watched::Check
                 : name == "FinishLoadingPlayerFromSaveGame" ? Watched::FinishLoading
                 : name == "GetBossLevel" ? Watched::BossLevel
-                : name == "SetupLevelData" && is_ib2() ? Watched::BossSetup
+                : name == "SetupLevelData" ? Watched::BossSetup
                 : name == "OnBuyStoreGem" ? Watched::BuyStoreGem
                 : name == "RemoveItemFromItemList" ? Watched::RemoveStoreRow
                 : is_cheat_row_handler(name) ? Watched::CheatRow : Watched::None;
@@ -967,8 +973,9 @@ void install_save_editor(const macho::Image& img) {
     // checks run on every load); otherwise the game runs exactly as before.
     g_skip_checks = file_exists(kUsedMarker);
     std::ifstream(kBloodlineMarker) >> g_edited_bloodline;
-    if (g_skip_checks || file_exists(kPendingFile) || g_edited_bloodline > 0 || settings::get().gem_shop_restock || settings::get().developer_mode ||
-        clashmob_wants_script_hook()) {
+    std::ifstream(kStoryBossFile) >> g_story_boss_level;
+    if (g_skip_checks || file_exists(kPendingFile) || g_edited_bloodline > 0 || g_story_boss_level > 0 ||
+        settings::get().gem_shop_restock || settings::get().developer_mode || clashmob_wants_script_hook()) {
         if (GuestAddr pi = img.find("__ZN7UObject15ProcessInternalER6FFramePv"))
             g_process_internal = hook::install(pi, "UObject::ProcessInternal", [](cpu::Thread& t) {
                 if (clashmob_script_call(t, t.x(1), t.x(2))) return;
@@ -978,7 +985,7 @@ void install_save_editor(const macho::Image& img) {
                     on_finish_loading(t, t.x(0));
                 } else if (w == Watched::BossLevel && g_edited_bloodline > 0) {
                     on_boss_level(t, t.x(0));
-                } else if (w == Watched::BossSetup && g_edited_bloodline > 0) {
+                } else if (w == Watched::BossSetup && g_story_boss_level > 0) {
                     on_boss_setup(t, t.x(0));
                 } else if (w == Watched::CheatRow && settings::get().developer_mode) {
                     if (cheat_row_called(t, t.x(0), t.x(1), ue::object_name(t, fn))) return;  // handled: skip the original

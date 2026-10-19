@@ -12,7 +12,7 @@ struct Settings {
     int render_height = 1080;  // 720, 1080, 1440, 2160 (16:9)
 #ifdef __ANDROID__
     int max_fps = 60;          // 30 (original), 60 or 120
-    bool widescreen = true;    // IB2 on phones longer than 16:9: fill the screen (false: 16:9 with black bars)
+    bool widescreen = true;    // fill the phone's screen (false: 16:9 with black bars)
 #else
     int max_fps = 30;          // 30 (original) or 60
 #endif

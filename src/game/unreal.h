@@ -56,6 +56,9 @@ int struct_member_offset(cpu::Thread& t, GuestAddr obj, const char* struct_prop,
 
 // Byte offset of parameter `param` in the parameter block of script function `func` of `obj`, or -1.
 int param_offset(cpu::Thread& t, GuestAddr obj, const std::string& func, const char* param);
+// The same for the UFunction `function` itself (a running frame's Node: no lookup by name on an object,
+// which would find a subclass's override). Needs one earlier reflection call that located UProperty::Offset.
+int function_local_offset(cpu::Thread& t, GuestAddr function, const char* local);
 
 // An FString whose text is allocated by the game (appMalloc), so the game may free or resize it.
 FString make_fstring(cpu::Thread& t, const std::string& s);

@@ -126,7 +126,10 @@ bool is_ib2() {
     std::string plist((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     static const std::string id = "com.chairentertainment.IB2";
     size_t at = plist.find(id);
-    return at != std::string::npos && (at + id.size() == plist.size() || !std::isalnum((unsigned char)plist[at + id.size()]));
+    if (at == std::string::npos) return false;
+    size_t end = at + id.size();
+    if (end < plist.size() && plist[end] == 'X') end++;  // IB2X, a mod of IB2, keeps the id with an X added
+    return end == plist.size() || !std::isalnum((unsigned char)plist[end]);
 }
 
 // The app's name from its manifest (UI thread).
@@ -277,13 +280,12 @@ void on_cmd(android_app* app, int32_t cmd) {
             // Fill the screen: keep iOS's 414-point height and widen the emulated screen to the
             // phone's shape (IB3 lays itself out for any width). IB2
             // only knows the iPhone screens of its time: it is widened only on phones longer than
-            // 16:9, where game::install_widescreen patches its HUD layout (or goes back to 16:9), unless
-            // the player chose 16:9 with black bars in the settings.
+            // 16:9, where game::install_widescreen patches its HUD layout (or goes back to 16:9).
+            // In either game the player can choose 16:9 with black bars in the settings instead.
             int w = ANativeWindow_getWidth(app->window), h = ANativeWindow_getHeight(app->window);
-            if (w > 0 && h > 0) {
+            if (w > 0 && h > 0 && settings::get().widescreen) {
                 double width = std::round(uikit::g_device.height_pt * std::max(w, h) / std::min(w, h));
-                if (!is_ib2() || (width > uikit::g_device.width_pt && settings::get().widescreen))
-                    uikit::g_device.width_pt = width;
+                if (!is_ib2() || width > uikit::g_device.width_pt) uikit::g_device.width_pt = width;
             }
             __android_log_print(ANDROID_LOG_INFO, "ib3", "window %dx%d: screen %.0fx%.0f points", w, h,
                                 uikit::g_device.width_pt, uikit::g_device.height_pt);

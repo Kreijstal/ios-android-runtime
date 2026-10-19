@@ -195,6 +195,12 @@ int param_offset(cpu::Thread& t, GuestAddr obj, const std::string& func, const c
     return prop ? (int)*gptr<u32>(prop + g_offset_field) : -1;
 }
 
+int function_local_offset(cpu::Thread& t, GuestAddr function, const char* local) {
+    if (!function || g_offset_field < 0) return -1;
+    GuestAddr prop = find_property(t, function, local);
+    return prop ? (int)*gptr<u32>(prop + g_offset_field) : -1;
+}
+
 FString make_fstring(cpu::Thread& t, const std::string& s) {
     FString out{0, (s32)s.size() + 1, (s32)s.size() + 1};
     if (!g_app_malloc) return {};

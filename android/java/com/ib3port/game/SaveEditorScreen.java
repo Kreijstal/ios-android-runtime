@@ -49,7 +49,9 @@ final class SaveEditorScreen {
         {"Bloodline", "Bloodline", "Which bloodline (rebirth) you are on.", "2"},
         {"Bloodline", "Awakening", "Your awakening (rebirth) number, shown on the Stats screen.", "3"},
         {"GemCarry", "Gem bag upgrades", "How many times the gem bag was made bigger.", "3"},
+        {"StoryBoss", "Story boss level", "The level every story boss fights at, in all your saves. 0 = the game's own level, which only goes up with New Game+.", "23"},
     };
+    private static final String BOSS_SECTION_KEY = "StoryBoss";  // shown under Bosses, not Character
     private final Activity a;
     private final File dir;
     private final String game;
@@ -168,9 +170,12 @@ final class SaveEditorScreen {
 
         content.addView(Ui.sectionHeader(a, "Character"));
         LinearLayout numbers = Ui.card(a);
+        LinearLayout bosses = Ui.card(a);
         for (String[] f : NUMBERS)
-            if (f[3].contains(game)) addRow(numbers, numberRow(f[0], f[1], f[2]));
+            if (f[3].contains(game)) addRow(f[0].equals(BOSS_SECTION_KEY) ? bosses : numbers, numberRow(f[0], f[1], f[2]));
         content.addView(numbers);
+        content.addView(Ui.sectionHeader(a, "Bosses"));
+        content.addView(bosses);
 
         LinearLayout center = new LinearLayout(a);
         center.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -231,6 +236,7 @@ final class SaveEditorScreen {
     private static final int MAX_LEVEL = 50;  // the last level the games' XP table (NextLevelXPTargets) covers
     // Bloodline / awakening: neither game's scripts limit it (IB3's CSMaxAwakening 100 is read by nothing).
     private static final int MAX_BLOODLINE = 250;
+    private static final int MAX_STORY_BOSS = 999_999;  // bloodline 250 makes regular bosses about 1,250; room to go far past it
 
     private long reportedLong(String key, long fallback) {
         try {
@@ -267,6 +273,7 @@ final class SaveEditorScreen {
             case "StatPoints": limit = 999; break;
             case "Bloodline": limit = MAX_BLOODLINE; break;
             case "GemCarry": return reportedLong("MaxGemCarry", 3);
+            case "StoryBoss": return MAX_STORY_BOSS;
             default:
                 if (key.startsWith("Stat")) limit = game.equals("3") ? 100 : 999;  // IB3's own max-out cheat uses 100
                 else limit = 999_999_999;  // gold, chips: room for the game to add to them

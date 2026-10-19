@@ -3,7 +3,9 @@
 #   dist/ib3-android-<version>.apk   (com.ib3port.game)
 #   dist/ib2-android-<version>.apk   (com.ib2port.game)
 # The app names and the .apk names are "IB3" / "IB2" and ib3-android / ib2-android, unless android/app-names.local
-# (not in the repository) has lines "<id>|<app name>|<apk name>", for example "ib3|My name|my-file-name".
+# (not in the repository) has lines "<id>|<app name>|<apk name>|<update page>", for example "ib3|My name|my-file-name|my-page".
+# The update page is the archive.org item the app looks for newer <apk name>-<version>.apk files on (Updater.java);
+# without one, the app does not check for updates.
 # The version is the manifest's versionName, so every released file says which build it is.
 # Needs tools/android: the NDK, build-tools (aapt2, d8, zipalign, apksigner) and android-35/android.jar,
 # plus a JDK (javac, keytool).
@@ -35,12 +37,13 @@ if [ ! -f "$KEYSTORE" ]; then
         -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=IB3 Port" >/dev/null 2>&1
 fi
 
-# package_app <id> <app name> <package> <.ipa bundle id> <.ipa version> <space needed> <apk name, without .apk>
+# package_app <id> <app name> <package> <.ipa bundle id> <.ipa version> <space needed> <apk name, without .apk> <update page>
 package_app() {
     local OUT=build-android/apk-$1
     mkdir -p "$OUT"
-    # Internet access is for the ClashMob server only (src/game/clashmob.cpp), in both games
+    # Internet access is for the ClashMob server (src/game/clashmob.cpp) and the update check (Updater.java)
     sed -e "s|@LABEL@|$2|" -e "s|@PACKAGE@|$3|" -e "s|@BUNDLE_ID@|$4|" -e "s|@IPA_VERSION@|$5|" -e "s|@SIZE@|$6|" \
+        -e "s|@APK_NAME@|$7|" -e "s|@UPDATE_PAGE@|$8|" \
         android/AndroidManifest.xml > "$OUT/AndroidManifest.xml"
     "$BT/aapt2.exe" compile --dir "android/res-$1" -o "$OUT/icon.zip"
     "$BT/aapt2.exe" link -o "$OUT/unsigned.apk" -I "$JAR" --manifest "$OUT/AndroidManifest.xml" \
@@ -58,12 +61,12 @@ EOF
     ls -la "dist/$7-$VERSION.apk"
 }
 
-# name <id> <field> <default>: the app's name (field 2) or .apk name (field 3) from android/app-names.local
+# name <id> <field> <default>: the app's name (field 2), .apk name (field 3) or update page (field 4) from android/app-names.local
 name() {
     local v
     v="$(grep "^$1|" android/app-names.local 2>/dev/null | head -1 | cut -d'|' -f"$2" | tr -d '\r')"
     echo "${v:-$3}"
 }
 
-package_app ib3 "$(name ib3 2 IB3)" com.ib3port.game com.chairentertainment.IB3 1.4.4 "3 GB" "$(name ib3 3 ib3-android)"
-package_app ib2 "$(name ib2 2 IB2)" com.ib2port.game com.chairentertainment.IB2 1.3.5 "1.5 GB" "$(name ib2 3 ib2-android)"
+package_app ib3 "$(name ib3 2 IB3)" com.ib3port.game com.chairentertainment.IB3 1.4.4 "3 GB" "$(name ib3 3 ib3-android)" "$(name ib3 4 "")"
+package_app ib2 "$(name ib2 2 IB2)" com.ib2port.game com.chairentertainment.IB2 1.3.5 "1.5 GB" "$(name ib2 3 ib2-android)" "$(name ib2 4 "")"

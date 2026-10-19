@@ -108,7 +108,10 @@ bool is_ib2() {
         std::string plist((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
         static const std::string id = "com.chairentertainment.IB2";
         size_t at = plist.find(id);
-        return at != std::string::npos && (at + id.size() == plist.size() || !std::isalnum((unsigned char)plist[at + id.size()]));
+        if (at == std::string::npos) return false;
+        size_t end = at + id.size();
+        if (end < plist.size() && plist[end] == 'X') end++;  // IB2X, a mod of IB2, keeps the id with an X added
+        return end == plist.size() || !std::isalnum((unsigned char)plist[end]);
     }();
     return ib2;
 }

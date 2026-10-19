@@ -74,6 +74,8 @@ final class SettingsScreen {
         content.addView(Ui.sectionHeader(a, "Game"));
         LinearLayout game = Ui.card(a);
         addRow(game, languageRow());
+        addRow(game, toggle("Check for updates", "When you open the app, it looks for a new version on its archive.org page and offers it."
+                + " Updating asks first and keeps your saves.", "Updates", "Check", 1));
         // Developer mode lived here until 1.6: a signpost to where it is now.
         addRow(game, Ui.actionRow(a, "Developer mode", "Moved to the Cheats page, together with god mode, gems and items.",
                 v -> openCheats.run()));
@@ -81,10 +83,8 @@ final class SettingsScreen {
 
         content.addView(Ui.sectionHeader(a, "Display"));
         LinearLayout display = Ui.card(a);
-        if (ib2) {
-            addRow(display, choice("Screen", "Full screen fits the game to your phone. 16:9 keeps the original shape, with black bars at the sides.",
-                    "Display", "Widescreen", 1, new int[] {1, 0}, new String[] {"Full screen", "16:9"}));
-        }
+        addRow(display, choice("Screen", "Full screen fits the game to your phone. 16:9 keeps the original shape, with black bars at the sides.",
+                "Display", "Widescreen", 1, new int[] {1, 0}, new String[] {"Full screen", "16:9"}));
         addRow(display, choice("Frame rate limit", "120 is experimental: it needs a 120 Hz screen and uses more battery.",
                 "Display", "MaxFPS", 60, new int[] {30, 60, 120}, new String[] {"30", "60", "120"}));
         addRow(display, choice("Resolution", "Lower is smoother on weaker phones.",

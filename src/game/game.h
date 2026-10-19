@@ -55,6 +55,8 @@ void install_touchzones(const macho::Image& img);
 void install_subtitles(const macho::Image& img);
 // Both games: settings look_sensitivity scales looking around by touch (game/look.cpp).
 void install_look_sensitivity(const macho::Image& img);
+// IB2: fight numbers (damage, healing, shield) grow with the screen like the rest of the HUD (game/hudtext.cpp).
+void install_fight_text_scale(const macho::Image& img);
 
 // IB2 on screens longer than 16:9: serves patched copies of its HUD layout script and
 // menu backdrops. If the patch does not apply, the emulated screen goes back to 16:9.
