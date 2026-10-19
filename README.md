@@ -21,6 +21,7 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 - **Graphics:** OpenGL ES calls go to the device's driver.
 - **Audio and video:** AAudio and MediaCodec.
 - **Input:** touch, keyboard and game controllers.
+- **Updates:** the launcher reads its archive.org page's public file list to offer new versions (Settings can turn it off).
 - **ClashMobs (IB2 and IB3):** the online events run on the IB community's ClashMob server (ibclashmobs.dev). `server/clashmob` holds the earlier server (a Cloudflare Worker); see its README.
 
 ## Versions
@@ -29,6 +30,13 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 <summary><b>Click for IB2</b></summary>
 
 **Download:** [IB2 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib2)
+
+**1.9.7** (2026-10-19)
+
+- **Updates from the app**: when you open the app, it looks for a newer version on its archive.org page. If there is one, the menu shows **Update to 1.9.x** with what is new; tapping it downloads the update (checked before installing) and Android asks you to confirm. Saves and settings stay. The first time, Android asks you to allow this app to install apps. Settings, Game, **Check for updates** turns it off. Only the page's public file list is read; nothing about you is sent.
+- Edit save: new **Bosses** section with **Story boss level** (0 to 999,999; 0 = the game's own). Story bosses get a fixed level from the game that only goes up with New Game+; this sets the level they fight at instead, in all your saves. It replaces 1.9.6's automatic link to an edited bloodline.
+- **IB2X** works like the regular IB2: it fills the screen on long phones (it was zoomed in, with the top and bottom of the HUD cut off), and every IB2 fix and setting now applies to it.
+- The **damage, healing and shield numbers** in fights and the **gold** shown after a fight now grow with the screen like the rest of the HUD (they were tiny at 1440p).
 
 **1.9.6** (2026-10-17)
 
@@ -140,6 +148,12 @@ Phones and iPhones both use ARM64, so on Android the app's code runs directly on
 <summary><b>Click for IB3</b></summary>
 
 **Download:** [IB3 APK](https://github.com/jelqedagain/ib-2-3-android/releases/tag/ib3)
+
+**1.9.7** (2026-10-19)
+
+- **Updates from the app**: when you open the app, it looks for a newer version on its archive.org page. If there is one, the menu shows **Update to 1.9.x** with what is new; tapping it downloads the update (checked before installing) and Android asks you to confirm. Saves and settings stay. The first time, Android asks you to allow this app to install apps. Settings, Game, **Check for updates** turns it off. Only the page's public file list is read; nothing about you is sent.
+- Edit save: new **Bosses** section with **Story boss level** (0 to 999,999; 0 = the game's own). Story bosses get a fixed level from the game that only goes up with New Game+; this sets the level they fight at instead, in all your saves. The awakening never changes them.
+- Settings, Display: **Screen** is now in IB3 too: Full screen (as before) or 16:9, the original shape with black bars at the sides.
 
 **1.9.5** (2026-10-16)
 
