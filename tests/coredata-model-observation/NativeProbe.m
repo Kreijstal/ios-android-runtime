@@ -157,43 +157,45 @@ static NSString *PathString(NSArray *path) {
     if (!data || data.length>512) return nil;
     return [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
 }
-static void Collect(id node,NSMutableDictionary *fields,NSArray *path,NSUInteger depth,NSUInteger *budget) {
-    if (depth>64) { *budget=0; return; }
-    if (!*budget) return;
+static void SetReason(NSString **reason,NSString *value) { if (!*reason) *reason=value; }
+static void Collect(id node,NSMutableDictionary *fields,NSArray *path,NSUInteger depth,NSUInteger *budget,NSString **reason) {
+    if (depth>64) { SetReason(reason,@"depth-limit"); *budget=0; return; }
+    if (!*budget) { SetReason(reason,@"node-limit"); return; }
     (*budget)--;
     if ([node isKindOfClass:NSDictionary.class]) {
-        if ([node count]>10000) { *budget=0; return; }
+        if ([node count]>10000) { SetReason(reason,@"collection-limit"); *budget=0; return; }
         for (id key in node) {
-            if (!PathKey(key)) { *budget=0; return; }
+            if (!PathKey(key)) { SetReason(reason,@"key-shape"); *budget=0; return; }
             id value=[node objectForKey:key];
             NSArray *next=[path arrayByAddingObject:@{@"key":key}];
             NSString *canonical=PathString(next);
-            if (!canonical) { *budget=0; return; }
+            if (!canonical) { SetReason(reason,@"path-limit"); *budget=0; return; }
             if (Identifier(key)) {
                 NSDictionary *scalar=Scalar(value);
                 NSMutableArray *values=[NSMutableArray arrayWithObject:scalar ?: (id)[NSNull null]];
                 fields[canonical]=@{@"field":key,@"path":next,@"values":values};
             }
-            Collect(value,fields,next,depth+1,budget);
+            Collect(value,fields,next,depth+1,budget,reason);
         }
     } else if ([node isKindOfClass:NSArray.class]) {
-        if ([node count]>10000) { *budget=0; return; }
+        if ([node count]>10000) { SetReason(reason,@"collection-limit"); *budget=0; return; }
         NSUInteger index=0;
         for (id value in node) {
             NSArray *next=[path arrayByAddingObject:@{@"index":@(index++)}];
-            if (!PathString(next)) { *budget=0; return; }
-            Collect(value,fields,next,depth+1,budget);
+            if (!PathString(next)) { SetReason(reason,@"path-limit"); *budget=0; return; }
+            Collect(value,fields,next,depth+1,budget,reason);
         }
     }
 }
-static NSDictionary *Fields(NSData *archive) {
-    if (!archive || archive.length>1024*1024) return nil;
+static NSDictionary *Fields(NSData *archive,NSString **reason) {
+    if (!archive || archive.length>1024*1024) { SetReason(reason,@"input-limit"); return nil; }
     NSError *error=nil;
     id plist=[NSPropertyListSerialization propertyListWithData:archive options:NSPropertyListImmutable format:NULL error:&error];
-    if (!plist || error) return nil;
+    if (!plist || error) { SetReason(reason,@"plist-rejected"); return nil; }
     NSMutableDictionary *fields=[NSMutableDictionary dictionary]; NSUInteger budget=10000;
-    Collect(plist,fields,@[],0,&budget);
-    return budget ? fields : nil;
+    Collect(plist,fields,@[],0,&budget,reason);
+    if (!budget) { SetReason(reason,@"node-limit"); return nil; }
+    return fields;
 }
 static NSDictionary *State(NSArray *values) {
     if (!values.count) return @{@"present":@NO};
@@ -205,10 +207,12 @@ static BOOL AttributeRoundtrip(NSData *archive,NSAttributeType type,BOOL optiona
     return [object isKindOfClass:NSAttributeDescription.class] && [[object name] isEqual:@"probeValue"] && [object attributeType]==type && [object isOptional]==optional;
 }
 static NSDictionary *CompareBuffers(NSArray *buffers) {
-    NSMutableDictionary *result=[NSMutableDictionary dictionaryWithDictionary:@{@"status":@"unparseable",@"field":[NSNull null],@"path":[NSNull null],@"required":[NSNull null],@"optional":[NSNull null]}];
-    NSDictionary *a=Fields(buffers[0]), *b=Fields(buffers[1]), *a2=Fields(buffers[2]), *b2=Fields(buffers[3]);
-    if (!a || !b || !a2 || !b2) return result;
-    result[@"status"]=@"inconclusive";
+    NSMutableDictionary *result=[NSMutableDictionary dictionaryWithDictionary:@{@"status":@"unparseable",@"reason":@"plist-rejected",@"field":[NSNull null],@"path":[NSNull null],@"required":[NSNull null],@"optional":[NSNull null]}];
+    NSString *reasons[4]={nil,nil,nil,nil};
+    NSDictionary *a=Fields(buffers[0],&reasons[0]), *b=Fields(buffers[1],&reasons[1]), *a2=Fields(buffers[2],&reasons[2]), *b2=Fields(buffers[3],&reasons[3]);
+    NSDictionary *inputs[4]={a,b,a2,b2};
+    for (NSUInteger index=0;index<4;index++) if (!inputs[index]) { result[@"reason"]=reasons[index]; return result; }
+    result[@"status"]=@"inconclusive"; result[@"reason"]=@"zero-candidates";
     NSMutableSet *keys=[NSMutableSet setWithArray:a.allKeys];
     for (NSDictionary *fields in @[b,a2,b2]) [keys addObjectsFromArray:fields.allKeys];
     NSMutableArray *candidates=[NSMutableArray array];
@@ -216,16 +220,17 @@ static NSDictionary *CompareBuffers(NSArray *buffers) {
         NSDictionary *one=State(a[key][@"values"]), *two=State(b[key][@"values"]);
         if (!one || !two) {
             id values=a[key][@"values"] ?: @[];
-            if (![values isEqual:(b[key][@"values"] ?: @[])] || ![values isEqual:(a2[key][@"values"] ?: @[])] || ![values isEqual:(b2[key][@"values"] ?: @[])]) return result;
+            if (![values isEqual:(b[key][@"values"] ?: @[])] || ![values isEqual:(a2[key][@"values"] ?: @[])] || ![values isEqual:(b2[key][@"values"] ?: @[])]) { result[@"reason"]=@"unsupported-position"; return result; }
             continue;
         }
-        if (![one isEqual:State(a2[key][@"values"])] || ![two isEqual:State(b2[key][@"values"])]) return result;
+        if (![one isEqual:State(a2[key][@"values"])] || ![two isEqual:State(b2[key][@"values"])]) { result[@"reason"]=@"repeat-mismatch"; return result; }
         if (![one isEqual:two]) {
             NSDictionary *position=a[key] ?: b[key];
             [candidates addObject:@{@"field":position[@"field"],@"path":position[@"path"],@"required":one,@"optional":two}];
         }
     }
-    if (candidates.count==1) { [result addEntriesFromDictionary:candidates[0]]; result[@"status"]=@"observed"; }
+    if (candidates.count==1) { [result addEntriesFromDictionary:candidates[0]]; result[@"status"]=@"observed"; result[@"reason"]=@"unique-scalar"; }
+    else if (candidates.count>1) result[@"reason"]=@"multiple-candidates";
     return result;
 }
 static NSDictionary *Observe(NSUInteger index,BOOL *controls) {

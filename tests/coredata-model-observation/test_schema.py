@@ -22,7 +22,7 @@ class ClosedSchemaTests(unittest.TestCase):
 
     def test_field_identifier_and_primitive_bounds(self):
         value = self.body()
-        fact = {'attributeType': 'String', 'status': 'observed',
+        fact = {'attributeType': 'String', 'status': 'observed', 'reason':'unique-scalar',
                 'requiredArchiveSha256': 'a'*64, 'optionalArchiveSha256': 'b'*64,
                 'field': 'authoredCandidate', 'path':[{'key':'authoredCandidate'}], 'required': {'present': False},
                 'optional': {'present': True, 'kind': 'boolean', 'value': True}}
@@ -34,7 +34,7 @@ class ClosedSchemaTests(unittest.TestCase):
 
     def test_detached_fact_requires_public_controls(self):
         value=self.body()
-        value['archiveFacts']=[{'attributeType':'String','status':'observed','requiredArchiveSha256':'a'*64,
+        value['archiveFacts']=[{'attributeType':'String','status':'observed','reason':'unique-scalar','requiredArchiveSha256':'a'*64,
                                'optionalArchiveSha256':'b'*64,'field':'knownCandidate','path':[{'key':'knownCandidate'}],
                                'required':{'present':False},'optional':{'present':True,'kind':'integer','value':1}}]
         with self.assertRaises(schema.Rejected): schema.model(value)
@@ -54,7 +54,7 @@ class ClosedSchemaTests(unittest.TestCase):
 
 class CompiledSchemaTests(unittest.TestCase):
     def body(self):
-        fact={'status':'inconclusive','field':None,'path':None,'required':None,'optional':None,'outputHashes':['a'*64]*4}
+        fact={'status':'inconclusive','reason':'zero-candidates','field':None,'path':None,'required':None,'optional':None,'outputHashes':['a'*64]*4}
         return {'format':1,'result':'pass','failure':'none','stage':'complete','scope':schema.COMPILED_SCOPE,
                 'controls':True,'platforms':{'mac':copy.deepcopy(fact),'ios':copy.deepcopy(fact)}}
 
@@ -63,16 +63,35 @@ class CompiledSchemaTests(unittest.TestCase):
 
     def test_encoding_fact_requires_public_controls(self):
         value=self.body(); value['controls']=False
-        fact=value['platforms']['mac']; fact.update(status='observed',field='knownCandidate',path=[{'key':'knownCandidate'}],required={'present':False},optional={'present':True,'kind':'integer','value':2})
+        fact=value['platforms']['mac']; fact.update(status='observed',reason='unique-scalar',field='knownCandidate',path=[{'key':'knownCandidate'}],required={'present':False},optional={'present':True,'kind':'integer','value':2})
         with self.assertRaises(schema.Rejected): schema.compiled(value)
 
     def test_equal_states_are_not_discovery(self):
         value=self.body(); fact=value['platforms']['mac']
-        fact.update(status='observed',field='knownCandidate',path=[{'key':'knownCandidate'}],required={'present':False},optional={'present':False})
+        fact.update(status='observed',reason='unique-scalar',field='knownCandidate',path=[{'key':'knownCandidate'}],required={'present':False},optional={'present':False})
         with self.assertRaises(schema.Rejected): schema.compiled(value)
 
     def test_unknown_native_field_rejected(self):
         value=self.body(); value['platforms']['mac']['description']='forbidden output'
+        with self.assertRaises(schema.Rejected): schema.compiled(value)
+
+class ObservationReasonTests(unittest.TestCase):
+    def test_unknown_reason_rejected(self):
+        value=CompiledSchemaTests().body(); value['platforms']['mac']['reason']='uncontrolled diagnostic'
+        with self.assertRaises(schema.Rejected): schema.compiled(value)
+
+    def test_status_reason_coupling(self):
+        value=CompiledSchemaTests().body(); fact=value['platforms']['mac']; fact['status']='unparseable'
+        with self.assertRaises(schema.Rejected): schema.compiled(value)
+        fact['reason']='key-shape'; schema.compiled(value)
+        fact['reason']='repeat-mismatch'
+        with self.assertRaises(schema.Rejected): schema.compiled(value)
+
+    def test_observed_requires_unique_reason(self):
+        value=CompiledSchemaTests().body(); fact=value['platforms']['mac']
+        fact.update(status='observed',reason='unique-scalar',field='candidate',path=[{'key':'candidate'}],required={'present':False},optional={'present':True,'kind':'boolean','value':True})
+        schema.compiled(value)
+        fact['reason']='multiple-candidates'
         with self.assertRaises(schema.Rejected): schema.compiled(value)
 
 class ObservationPathTests(unittest.TestCase):

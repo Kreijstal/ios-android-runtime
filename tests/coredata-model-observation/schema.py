@@ -52,6 +52,15 @@ def observation_path(value, field):
     require(value[-1] == {'key': field})
     require(len(json.dumps(value,separators=(',',':'),sort_keys=True).encode('ascii')) <= 512)
 
+REASONS = {
+    'unparseable': {'input-limit', 'plist-rejected', 'depth-limit', 'node-limit', 'collection-limit', 'key-shape', 'path-limit'},
+    'inconclusive': {'unsupported-position', 'repeat-mismatch', 'zero-candidates', 'multiple-candidates'},
+    'observed': {'unique-scalar'},
+}
+
+def observation_reason(fact):
+    require(type(fact['reason']) is str and fact['reason'] in REASONS[fact['status']])
+
 def model(value):
     keys(value, {'format', 'result', 'failure', 'stage', 'scope', 'checks', 'archiveFacts', 'modelHashes'})
     require(type(value['format']) is int and value['format'] == 1)
@@ -67,9 +76,10 @@ def model(value):
     facts = value['archiveFacts']
     require(type(facts) is list and len(facts) <= 4)
     for index, fact in enumerate(facts):
-        keys(fact, {'attributeType', 'status', 'requiredArchiveSha256', 'optionalArchiveSha256', 'field', 'path', 'required', 'optional'})
+        keys(fact, {'attributeType', 'status', 'reason', 'requiredArchiveSha256', 'optionalArchiveSha256', 'field', 'path', 'required', 'optional'})
         require(fact['attributeType'] == TYPES[index])
         require(fact['status'] in {'observed', 'inconclusive', 'unparseable'})
+        observation_reason(fact)
         sha(fact['requiredArchiveSha256']); sha(fact['optionalArchiveSha256'])
         if fact['status'] == 'observed':
             require(value['checks']['archiveObservationControls'])
@@ -120,8 +130,9 @@ def compiled(value):
     require(value['scope'] == COMPILED_SCOPE and type(value['controls']) is bool)
     require(type(value['platforms']) is dict and set(value['platforms']) <= {'mac', 'ios'})
     for fact in value['platforms'].values():
-        keys(fact, {'status', 'field', 'path', 'required', 'optional', 'outputHashes'})
+        keys(fact, {'status', 'reason', 'field', 'path', 'required', 'optional', 'outputHashes'})
         require(fact['status'] in {'observed', 'inconclusive', 'unparseable'})
+        observation_reason(fact)
         require(type(fact['outputHashes']) is list and len(fact['outputHashes']) == 4)
         for item in fact['outputHashes']: sha(item)
         if fact['status'] == 'observed':
