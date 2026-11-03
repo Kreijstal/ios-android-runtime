@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" sourceLanguage="Objective-C" userDefinedModelVersionIdentifier=""><entity name="SingleCase" representedClassName="NSManagedObject"><attribute name="probeValue" optional="NO" attributeType="String"/></entity></model>

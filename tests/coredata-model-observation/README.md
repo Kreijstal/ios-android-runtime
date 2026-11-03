@@ -1,0 +1,24 @@
+Authored CoreData model and EnvironmentValues observations
+
+This is a local proposal. No remote push/job or native macOS observation has been performed. The feature branch is `test/coredata-model-observation-20261103`, based on public main `3f7ce1672632abe96a71dd5d9c58f45b20b29a7a`. The source repository's push URL remains disabled during review.
+
+The macOS executable uses public CoreData APIs on authored objects and newly compiled authored resources. The broader model covers optional/required String, Date, URI and Boolean getters, model archive roundtrip, nil optional saves, typed nonnil optional persistence, and clearing optional values. The required-nil negative control is String only; it requires failed validation/save, retained insertion/no false DidSave and corrected retry. Fresh fetches verify values.
+
+The separate minimal String pair has the same source basename, entity/property/type, target and product settings; only optionality differs. The runner copies its pinned source into fresh A/B/A2/B2 directories and uses normal Xcode resource build phases for macOS and iOS targets. Every exact fresh resource is hashed and loaded through the public model initializer; public getters, a model archive roundtrip and nil-save controls must all pass before any encoding observation. The iOS deployment target is 16.0; actual installed SDK/Xcode/macOS versions are recorded. Running the public model initializer on macOS does not establish iOS 16 runtime behavior.
+
+Only those exact fresh authored data outputs and detached authored attribute archives are passed to public NSPropertyListSerialization. Generic bounded dictionary/array traversal observes ASCII identifier keys paired with Boolean or int32 NSNumber values. Strings, blobs, dates and opaque values are ignored. No UID/class/reference reconstruction or private APIs are used. Bytes/depth/nodes/collection sizes fail closed. Duplicate differing keys, unstable repeats, multiple differences or unsupported output remain inconclusive; no candidate key/bit/path is hardcoded. A unique stable observed scalar transition is version/input-specific. Detached archives and compiled outputs have separate schemas. Concordance is true only if both independently observe the same identifier and typed transition. Behavioral success can coexist with inconclusive encoding; no discovered key is required for a green behavior job.
+
+EnvironmentProbe is separate, public and has no GUI. Fresh default getter, direct set, fresh generic WritableKeyPath assignment, and seeded generic replacement each run in a different process. Default facts are recorded only if the public getter returns. Each case retains its own exit category and bounded report; its failure is not converted into a fabricated context default or model failure. A green overall report means model controls pass and all environment cases were attempted, not that every environment case succeeded.
+
+All build/native standard streams go to DEVNULL before child creation; core dumps are disabled. Only narrowly regex-validated public tool-version and git-SHA outputs are captured. No raw logs, exceptions/descriptions, archives/models, executables, guest input or secrets are uploaded. The only artifact is at most 64 KiB of closed-schema validated JSON. Unknown fields, wrong Boolean/integer types, oversized/duplicate JSON members or uncontrolled strings reject upload. Fixed failure stage/enum only. The workflow has read-only contents permission, exact repository/branch/push guards and pinned action/source identities. No default-branch write, PR or dispatch is needed. The eventual source pin is a harness commit; the event SHA separately identifies the workflow-bearing commit.
+
+Primary behavior sources: Apple NSPropertyDescription.isOptional; NSManagedObject.validateForInsert/validateForUpdate; NSManagedObjectModel.init(contentsOf:); NSKeyedArchiver/Unarchiver; NSPropertyListSerialization; Core Data Model File Format and Versions. These sources describe public behavior and allowed authored-data observation, not an optionality coder field. Source links:
+
+- https://developer.apple.com/documentation/coredata/nspropertydescription/isoptional
+- https://developer.apple.com/documentation/coredata/nsmanagedobject/validateforinsert()
+- https://developer.apple.com/documentation/coredata/nsmanagedobjectmodel/init(contentsof:)
+- https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreDataVersioning/Articles/vmModelFormat.html
+- https://developer.apple.com/documentation/foundation/propertylistserialization
+- https://docs.github.com/en/actions/concepts/workflows-and-actions/workflows
+
+Local validation uses Python closed-schema containment tests and syntax checks, authored XML parsing and strict public-SDK Objective-C syntax compilation. Linux cannot validate normal Xcode build execution or public native model behavior. No compiled resource has been read or encoding fact observed yet.
