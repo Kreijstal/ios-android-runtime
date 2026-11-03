@@ -149,11 +149,11 @@ static void Collect(id node,NSMutableDictionary *fields,NSUInteger depth,NSUInte
         if ([node count]>10000) { *budget=0; return; }
         for (id key in node) {
             id value=[node objectForKey:key];
-            NSDictionary *scalar=Identifier(key) ? Scalar(value) : nil;
-            if (scalar) {
+            if (Identifier(key)) {
+                NSDictionary *scalar=Scalar(value);
                 NSMutableArray *values=fields[key];
                 if (!values) { values=[NSMutableArray array]; fields[key]=values; }
-                [values addObject:scalar];
+                [values addObject:scalar ?: (id)[NSNull null]];
             }
             Collect(value,fields,depth+1,budget);
         }
@@ -173,7 +173,7 @@ static NSDictionary *Fields(NSData *archive) {
 }
 static NSDictionary *State(NSArray *values) {
     if (!values.count) return @{@"present":@NO};
-    if (values.count!=1) return nil;
+    if (values.count!=1 || ![values[0] isKindOfClass:NSDictionary.class]) return nil;
     return @{@"present":@YES,@"kind":values[0][@"kind"],@"value":values[0][@"value"]};
 }
 static BOOL AttributeRoundtrip(NSData *archive,NSAttributeType type,BOOL optional) {
