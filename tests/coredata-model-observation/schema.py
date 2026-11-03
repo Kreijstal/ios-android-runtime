@@ -59,6 +59,7 @@ def model(value):
         require(fact['status'] in {'observed', 'inconclusive', 'unparseable'})
         sha(fact['requiredArchiveSha256']); sha(fact['optionalArchiveSha256'])
         if fact['status'] == 'observed':
+            require(value['checks']['archiveObservationControls'])
             require(type(fact['field']) is str and re.fullmatch('[A-Za-z_][A-Za-z0-9_]{0,63}', fact['field']) is not None)
             scalar_state(fact['required']); scalar_state(fact['optional'])
             require(fact['required'] != fact['optional'])

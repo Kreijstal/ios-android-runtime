@@ -317,6 +317,7 @@ int main(int argc,const char **argv) {
             else success=Run(report,mac,ios,work);
         } @catch (id exception) { report[@"result"]=@"failed"; report[@"failure"]=@"exception"; }
         report[@"stage"]=Stage;
+        if (![checks[@"archiveObservationControls"] boolValue]) [report[@"archiveFacts"] removeAllObjects];
         NSError *error=nil; NSData *data=[NSJSONSerialization dataWithJSONObject:report options:NSJSONWritingSortedKeys error:&error];
         if (!data || error || data.length>32768 || ![data writeToURL:output atomically:YES]) return 3;
         return success ? 0 : 1;

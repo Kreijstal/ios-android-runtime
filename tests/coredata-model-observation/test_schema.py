@@ -26,10 +26,17 @@ class ClosedSchemaTests(unittest.TestCase):
                 'requiredArchiveSha256': 'a'*64, 'optionalArchiveSha256': 'b'*64,
                 'field': 'authoredCandidate', 'required': {'present': False},
                 'optional': {'present': True, 'kind': 'boolean', 'value': True}}
-        value['archiveFacts'] = [fact]; schema.model(value)
+        value['archiveFacts'] = [fact]; value['checks']['archiveObservationControls']=True; schema.model(value)
         fact['field'] = 'unexpected\ntext'
         with self.assertRaises(schema.Rejected): schema.model(value)
         fact['field'] = 'authoredCandidate'; fact['optional'] = {'present': True, 'kind': 'integer', 'value': 2**40}
+        with self.assertRaises(schema.Rejected): schema.model(value)
+
+    def test_detached_fact_requires_public_controls(self):
+        value=self.body()
+        value['archiveFacts']=[{'attributeType':'String','status':'observed','requiredArchiveSha256':'a'*64,
+                               'optionalArchiveSha256':'b'*64,'field':'knownCandidate',
+                               'required':{'present':False},'optional':{'present':True,'kind':'integer','value':1}}]
         with self.assertRaises(schema.Rejected): schema.model(value)
 
     def test_boolean_is_not_integer(self):
