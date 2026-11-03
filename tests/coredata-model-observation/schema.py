@@ -130,6 +130,7 @@ def final(value):
     require(value['source']['repository'] == 'Kreijstal/ios-android-runtime')
     require(value['source']['ref'] == 'refs/heads/test/coredata-model-observation-20261103' and value['source']['event'] == 'push')
     for key in ('harnessSha', 'eventSha'): require(type(value['source'][key]) is str and re.fullmatch('[a-f0-9]{40}', value['source'][key]) is not None)
+    require(value['source']['harnessSha'] == value['source']['eventSha'])
     require(type(value['tools']) is dict and set(value['tools']) <= {'macOS', 'xcode', 'macSDK', 'iosSDK', 'architecture'})
     for key, item in value['tools'].items():
         require(type(item) is str and re.fullmatch('[A-Za-z0-9 ._-]{1,80}', item) is not None)

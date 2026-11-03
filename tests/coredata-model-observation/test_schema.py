@@ -75,4 +75,18 @@ class CompiledSchemaTests(unittest.TestCase):
         value=self.body(); value['platforms']['mac']['description']='forbidden output'
         with self.assertRaises(schema.Rejected): schema.compiled(value)
 
+class SourceIdentityTests(unittest.TestCase):
+    def body(self):
+        return {'format':1,'result':'failed','stage':'guard',
+                'source':{'repository':'Kreijstal/ios-android-runtime','ref':'refs/heads/test/coredata-model-observation-20261103','event':'push','harnessSha':'a'*40,'eventSha':'a'*40},
+                'tools':{},'models':None,'compiled':None,'environment':{},
+                'controlSources':{'required':None,'optional':None},'concordance':{'mac':False,'ios':False}}
+
+    def test_matching_event_identity_is_valid(self):
+        schema.final(self.body())
+
+    def test_distinct_event_harness_identity_is_rejected(self):
+        value=self.body(); value['source']['harnessSha']='b'*40
+        with self.assertRaises(schema.Rejected): schema.final(value)
+
 if __name__ == '__main__': unittest.main()

@@ -77,7 +77,7 @@ def main():
     require(source['repository'] == REPOSITORY and source['ref'] == REF and source['event'] == 'push')
     require(all(type(source[key]) is str and re.fullmatch('[a-f0-9]{40}', source[key]) for key in ('harnessSha','eventSha')))
     checked=version(['git','-C',str(ROOT),'rev-parse','HEAD'], r'([a-f0-9]{40})')
-    require(checked == args.harness_sha)
+    require(checked == args.harness_sha == source['eventSha'])
     # No tracked changes to the source pinned by workflow; untracked build data lives outside.
     require(invoke(['git','-C',str(ROOT),'diff','--quiet','HEAD','--']) == 0)
     report={'format':1,'result':'failed','stage':'guard','source':source,'tools':{},

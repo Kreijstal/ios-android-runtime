@@ -26,10 +26,10 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
-      - name: check out exact reviewed harness source
+      - name: check out exact reviewed event source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: b34d091c6ab819f5419ef34d5a256272ae0ad998
+          ref: ${{ github.sha }}
           path: harness
           persist-credentials: false
           fetch-depth: 1
@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           ulimit -c 0
           python3 harness/tests/coredata-model-observation/run.py \
-            --harness-sha b34d091c6ab819f5419ef34d5a256272ae0ad998 \
+            --harness-sha ${{ github.sha }} \
             --work "$RUNNER_TEMP/authored-model-work" \
             --output "$RUNNER_TEMP/authored-model-report/report.json"
       - name: validate closed bounded JSON before upload
