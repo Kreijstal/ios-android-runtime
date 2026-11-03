@@ -24,7 +24,7 @@ class ClosedSchemaTests(unittest.TestCase):
         value = self.body()
         fact = {'attributeType': 'String', 'status': 'observed',
                 'requiredArchiveSha256': 'a'*64, 'optionalArchiveSha256': 'b'*64,
-                'field': 'authoredCandidate', 'required': {'present': False},
+                'field': 'authoredCandidate', 'path':[{'key':'authoredCandidate'}], 'required': {'present': False},
                 'optional': {'present': True, 'kind': 'boolean', 'value': True}}
         value['archiveFacts'] = [fact]; value['checks']['archiveObservationControls']=True; schema.model(value)
         fact['field'] = 'unexpected\ntext'
@@ -35,7 +35,7 @@ class ClosedSchemaTests(unittest.TestCase):
     def test_detached_fact_requires_public_controls(self):
         value=self.body()
         value['archiveFacts']=[{'attributeType':'String','status':'observed','requiredArchiveSha256':'a'*64,
-                               'optionalArchiveSha256':'b'*64,'field':'knownCandidate',
+                               'optionalArchiveSha256':'b'*64,'field':'knownCandidate','path':[{'key':'knownCandidate'}],
                                'required':{'present':False},'optional':{'present':True,'kind':'integer','value':1}}]
         with self.assertRaises(schema.Rejected): schema.model(value)
 
@@ -54,7 +54,7 @@ class ClosedSchemaTests(unittest.TestCase):
 
 class CompiledSchemaTests(unittest.TestCase):
     def body(self):
-        fact={'status':'inconclusive','field':None,'required':None,'optional':None,'outputHashes':['a'*64]*4}
+        fact={'status':'inconclusive','field':None,'path':None,'required':None,'optional':None,'outputHashes':['a'*64]*4}
         return {'format':1,'result':'pass','failure':'none','stage':'complete','scope':schema.COMPILED_SCOPE,
                 'controls':True,'platforms':{'mac':copy.deepcopy(fact),'ios':copy.deepcopy(fact)}}
 
@@ -63,17 +63,25 @@ class CompiledSchemaTests(unittest.TestCase):
 
     def test_encoding_fact_requires_public_controls(self):
         value=self.body(); value['controls']=False
-        fact=value['platforms']['mac']; fact.update(status='observed',field='knownCandidate',required={'present':False},optional={'present':True,'kind':'integer','value':2})
+        fact=value['platforms']['mac']; fact.update(status='observed',field='knownCandidate',path=[{'key':'knownCandidate'}],required={'present':False},optional={'present':True,'kind':'integer','value':2})
         with self.assertRaises(schema.Rejected): schema.compiled(value)
 
     def test_equal_states_are_not_discovery(self):
         value=self.body(); fact=value['platforms']['mac']
-        fact.update(status='observed',field='knownCandidate',required={'present':False},optional={'present':False})
+        fact.update(status='observed',field='knownCandidate',path=[{'key':'knownCandidate'}],required={'present':False},optional={'present':False})
         with self.assertRaises(schema.Rejected): schema.compiled(value)
 
     def test_unknown_native_field_rejected(self):
         value=self.body(); value['platforms']['mac']['description']='forbidden output'
         with self.assertRaises(schema.Rejected): schema.compiled(value)
+
+class ObservationPathTests(unittest.TestCase):
+    def test_only_ordinary_bounded_tree_position_tokens(self):
+        schema.observation_path([{'key':'$objects'},{'index':1},{'key':'knownField'}], 'knownField')
+        for path in ([{'uid':1},{'key':'knownField'}], [{'index':10000},{'key':'knownField'}],
+                     [{'key':'unexpected\ntext'},{'key':'knownField'}], [{'key':'wrongTerminal'}],
+                     [{'key':'x'*64}]*10+[{'key':'knownField'}]):
+            with self.assertRaises(schema.Rejected): schema.observation_path(path,'knownField')
 
 class SourceIdentityTests(unittest.TestCase):
     def body(self):

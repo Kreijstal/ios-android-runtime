@@ -1,5 +1,6 @@
 """Closed result schemas; never return unvalidated native content for upload."""
 import re
+import json
 
 TYPES = ['String', 'Date', 'URI', 'Boolean']
 CHECKS = {'programmaticGetters', 'programmaticRoundtrip', 'archiveObservationControls',
@@ -39,6 +40,18 @@ def scalar_state(value):
         else:
             require(False)
 
+def observation_path(value, field):
+    require(type(value) is list and 1 <= len(value) <= 64)
+    for token in value:
+        require(type(token) is dict)
+        if set(token) == {'key'}:
+            require(type(token['key']) is str and re.fullmatch('[A-Za-z_$][A-Za-z0-9_$]{0,63}', token['key']) is not None)
+        elif set(token) == {'index'}:
+            require(type(token['index']) is int and 0 <= token['index'] < 10000)
+        else: require(False)
+    require(value[-1] == {'key': field})
+    require(len(json.dumps(value,separators=(',',':'),sort_keys=True).encode('ascii')) <= 512)
+
 def model(value):
     keys(value, {'format', 'result', 'failure', 'stage', 'scope', 'checks', 'archiveFacts', 'modelHashes'})
     require(type(value['format']) is int and value['format'] == 1)
@@ -54,17 +67,18 @@ def model(value):
     facts = value['archiveFacts']
     require(type(facts) is list and len(facts) <= 4)
     for index, fact in enumerate(facts):
-        keys(fact, {'attributeType', 'status', 'requiredArchiveSha256', 'optionalArchiveSha256', 'field', 'required', 'optional'})
+        keys(fact, {'attributeType', 'status', 'requiredArchiveSha256', 'optionalArchiveSha256', 'field', 'path', 'required', 'optional'})
         require(fact['attributeType'] == TYPES[index])
         require(fact['status'] in {'observed', 'inconclusive', 'unparseable'})
         sha(fact['requiredArchiveSha256']); sha(fact['optionalArchiveSha256'])
         if fact['status'] == 'observed':
             require(value['checks']['archiveObservationControls'])
             require(type(fact['field']) is str and re.fullmatch('[A-Za-z_][A-Za-z0-9_]{0,63}', fact['field']) is not None)
+            observation_path(fact['path'], fact['field'])
             scalar_state(fact['required']); scalar_state(fact['optional'])
             require(fact['required'] != fact['optional'])
         else:
-            require(fact['field'] is None and fact['required'] is None and fact['optional'] is None)
+            require(fact['field'] is None and fact['path'] is None and fact['required'] is None and fact['optional'] is None)
     if value['result'] == 'pass':
         require(value['stage'] == 'complete' and value['failure'] == 'none' and all(value['checks'].values()) and len(facts) == 4)
         require(all(item is not None for item in value['modelHashes'].values()))
@@ -106,16 +120,17 @@ def compiled(value):
     require(value['scope'] == COMPILED_SCOPE and type(value['controls']) is bool)
     require(type(value['platforms']) is dict and set(value['platforms']) <= {'mac', 'ios'})
     for fact in value['platforms'].values():
-        keys(fact, {'status', 'field', 'required', 'optional', 'outputHashes'})
+        keys(fact, {'status', 'field', 'path', 'required', 'optional', 'outputHashes'})
         require(fact['status'] in {'observed', 'inconclusive', 'unparseable'})
         require(type(fact['outputHashes']) is list and len(fact['outputHashes']) == 4)
         for item in fact['outputHashes']: sha(item)
         if fact['status'] == 'observed':
             require(value['controls'] and type(fact['field']) is str and re.fullmatch('[A-Za-z_][A-Za-z0-9_]{0,63}', fact['field']) is not None)
+            observation_path(fact['path'], fact['field'])
             scalar_state(fact['required']); scalar_state(fact['optional'])
             require(fact['required'] != fact['optional'])
         else:
-            require(fact['field'] is None and fact['required'] is None and fact['optional'] is None)
+            require(fact['field'] is None and fact['path'] is None and fact['required'] is None and fact['optional'] is None)
     if value['result'] == 'pass':
         require(value['failure'] == 'none' and value['stage'] == 'complete' and value['controls'] and set(value['platforms']) == {'mac', 'ios'})
     else: require(value['failure'] != 'none')

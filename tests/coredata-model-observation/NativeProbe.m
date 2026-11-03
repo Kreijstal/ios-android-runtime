@@ -141,25 +141,49 @@ static NSDictionary *Scalar(NSNumber *number) {
     if (CFNumberIsFloatType((CFNumberRef)number) || [number compare:@(INT32_MIN)]==NSOrderedAscending || [number compare:@(INT32_MAX)]==NSOrderedDescending) return nil;
     return @{@"kind":@"integer",@"value":@([number intValue])};
 }
-static void Collect(id node,NSMutableDictionary *fields,NSUInteger depth,NSUInteger *budget) {
+static BOOL PathKey(NSString *key) {
+    if (![key isKindOfClass:NSString.class] || key.length<1 || key.length>64) return NO;
+    const char *bytes=key.UTF8String;
+    for (NSUInteger index=0;bytes[index];index++) {
+        unsigned char value=bytes[index];
+        BOOL letter=(value>='A' && value<='Z') || (value>='a' && value<='z') || value=='_' || value=='$';
+        if (!letter && !(index && value>='0' && value<='9')) return NO;
+    }
+    return YES;
+}
+static NSString *PathString(NSArray *path) {
+    if (path.count>64) return nil;
+    NSData *data=[NSJSONSerialization dataWithJSONObject:path options:NSJSONWritingSortedKeys error:NULL];
+    if (!data || data.length>512) return nil;
+    return [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
+}
+static void Collect(id node,NSMutableDictionary *fields,NSArray *path,NSUInteger depth,NSUInteger *budget) {
     if (depth>64) { *budget=0; return; }
     if (!*budget) return;
     (*budget)--;
     if ([node isKindOfClass:NSDictionary.class]) {
         if ([node count]>10000) { *budget=0; return; }
         for (id key in node) {
+            if (!PathKey(key)) { *budget=0; return; }
             id value=[node objectForKey:key];
+            NSArray *next=[path arrayByAddingObject:@{@"key":key}];
+            NSString *canonical=PathString(next);
+            if (!canonical) { *budget=0; return; }
             if (Identifier(key)) {
                 NSDictionary *scalar=Scalar(value);
-                NSMutableArray *values=fields[key];
-                if (!values) { values=[NSMutableArray array]; fields[key]=values; }
-                [values addObject:scalar ?: (id)[NSNull null]];
+                NSMutableArray *values=[NSMutableArray arrayWithObject:scalar ?: (id)[NSNull null]];
+                fields[canonical]=@{@"field":key,@"path":next,@"values":values};
             }
-            Collect(value,fields,depth+1,budget);
+            Collect(value,fields,next,depth+1,budget);
         }
     } else if ([node isKindOfClass:NSArray.class]) {
         if ([node count]>10000) { *budget=0; return; }
-        for (id value in node) Collect(value,fields,depth+1,budget);
+        NSUInteger index=0;
+        for (id value in node) {
+            NSArray *next=[path arrayByAddingObject:@{@"index":@(index++)}];
+            if (!PathString(next)) { *budget=0; return; }
+            Collect(value,fields,next,depth+1,budget);
+        }
     }
 }
 static NSDictionary *Fields(NSData *archive) {
@@ -168,7 +192,7 @@ static NSDictionary *Fields(NSData *archive) {
     id plist=[NSPropertyListSerialization propertyListWithData:archive options:NSPropertyListImmutable format:NULL error:&error];
     if (!plist || error) return nil;
     NSMutableDictionary *fields=[NSMutableDictionary dictionary]; NSUInteger budget=10000;
-    Collect(plist,fields,0,&budget);
+    Collect(plist,fields,@[],0,&budget);
     return budget ? fields : nil;
 }
 static NSDictionary *State(NSArray *values) {
@@ -181,7 +205,7 @@ static BOOL AttributeRoundtrip(NSData *archive,NSAttributeType type,BOOL optiona
     return [object isKindOfClass:NSAttributeDescription.class] && [[object name] isEqual:@"probeValue"] && [object attributeType]==type && [object isOptional]==optional;
 }
 static NSDictionary *CompareBuffers(NSArray *buffers) {
-    NSMutableDictionary *result=[NSMutableDictionary dictionaryWithDictionary:@{@"status":@"unparseable",@"field":[NSNull null],@"required":[NSNull null],@"optional":[NSNull null]}];
+    NSMutableDictionary *result=[NSMutableDictionary dictionaryWithDictionary:@{@"status":@"unparseable",@"field":[NSNull null],@"path":[NSNull null],@"required":[NSNull null],@"optional":[NSNull null]}];
     NSDictionary *a=Fields(buffers[0]), *b=Fields(buffers[1]), *a2=Fields(buffers[2]), *b2=Fields(buffers[3]);
     if (!a || !b || !a2 || !b2) return result;
     result[@"status"]=@"inconclusive";
@@ -189,14 +213,17 @@ static NSDictionary *CompareBuffers(NSArray *buffers) {
     for (NSDictionary *fields in @[b,a2,b2]) [keys addObjectsFromArray:fields.allKeys];
     NSMutableArray *candidates=[NSMutableArray array];
     for (NSString *key in keys) {
-        NSDictionary *one=State(a[key]), *two=State(b[key]);
+        NSDictionary *one=State(a[key][@"values"]), *two=State(b[key][@"values"]);
         if (!one || !two) {
-            id values=a[key] ?: @[];
-            if (![values isEqual:(b[key] ?: @[])] || ![values isEqual:(a2[key] ?: @[])] || ![values isEqual:(b2[key] ?: @[])]) return result;
+            id values=a[key][@"values"] ?: @[];
+            if (![values isEqual:(b[key][@"values"] ?: @[])] || ![values isEqual:(a2[key][@"values"] ?: @[])] || ![values isEqual:(b2[key][@"values"] ?: @[])]) return result;
             continue;
         }
-        if (![one isEqual:State(a2[key])] || ![two isEqual:State(b2[key])]) return result;
-        if (![one isEqual:two]) [candidates addObject:@{@"field":key,@"required":one,@"optional":two}];
+        if (![one isEqual:State(a2[key][@"values"])] || ![two isEqual:State(b2[key][@"values"])]) return result;
+        if (![one isEqual:two]) {
+            NSDictionary *position=a[key] ?: b[key];
+            [candidates addObject:@{@"field":position[@"field"],@"path":position[@"path"],@"required":one,@"optional":two}];
+        }
     }
     if (candidates.count==1) { [result addEntriesFromDictionary:candidates[0]]; result[@"status"]=@"observed"; }
     return result;
