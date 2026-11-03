@@ -1,0 +1,70 @@
+name: authored CoreData model observation
+
+on:
+  push:
+    branches:
+      - test/coredata-model-observation-20261103
+    paths:
+      - tests/coredata-model-observation/**
+      - .github/workflows/authored-coredata-model-observation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: authored-coredata-model-observation
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: >-
+      github.repository == 'Kreijstal/ios-android-runtime' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/test/coredata-model-observation-20261103'
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: check out exact reviewed harness source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: b34d091c6ab819f5419ef34d5a256272ae0ad998
+          path: harness
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+          sparse-checkout: tests/coredata-model-observation
+      - name: run bounded authored public API controls
+        id: observe
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          ulimit -c 0
+          python3 harness/tests/coredata-model-observation/run.py \
+            --harness-sha b34d091c6ab819f5419ef34d5a256272ae0ad998 \
+            --work "$RUNNER_TEMP/authored-model-work" \
+            --output "$RUNNER_TEMP/authored-model-report/report.json"
+      - name: validate closed bounded JSON before upload
+        id: validate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 harness/tests/coredata-model-observation/validate.py \
+            "$RUNNER_TEMP/authored-model-report/report.json"
+      - name: upload only validated JSON
+        if: always() && steps.validate.outputs.safe == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: authored-coredata-model-observation
+          path: ${{ runner.temp }}/authored-model-report/report.json
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: false
+      - name: retain behavioral failure result
+        if: always() && steps.observe.outcome != 'success'
+        shell: bash
+        run: exit 1
